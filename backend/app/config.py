@@ -26,8 +26,9 @@ class Settings(BaseSettings):
     # Providers. "local" sends nothing off-box. External providers (e.g.
     # "anthropic") must be explicitly approved for data residency (§11).
     llm_provider: str = "local"
-    embedding_provider: str = "local"
-    embedding_dim: int = 256
+    embedding_provider: str = "local"  # local | sentence_transformers
+    embedding_dim: int = 256  # MUST match the embedding model (MiniLM-L6: 384)
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 

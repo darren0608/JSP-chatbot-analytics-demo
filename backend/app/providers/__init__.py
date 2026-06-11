@@ -9,6 +9,9 @@ from .local import ExtractiveLLM, HashingEmbeddingProvider
 def get_embedding_provider() -> EmbeddingProvider:
     if settings.embedding_provider == "local":
         return HashingEmbeddingProvider(dim=settings.embedding_dim)
+    if settings.embedding_provider == "sentence_transformers":
+        from .st_embeddings import SentenceTransformerEmbeddingProvider
+        return SentenceTransformerEmbeddingProvider()
     raise ValueError(
         f"Unknown embedding provider '{settings.embedding_provider}'. "
         "Add an adapter in app/providers/ and register it here."

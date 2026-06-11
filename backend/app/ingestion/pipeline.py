@@ -23,7 +23,11 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def ingest(db: Session, adapter: SourceAdapter | None = None) -> dict:
+def ingest(db: Session, adapter: SourceAdapter | None = None,
+           force: bool = False) -> dict:
+    """force=True re-chunks and re-embeds documents whose content is
+    unchanged — required after switching the embedding provider/model, since
+    the delta check is on content_hash, not on the embedder."""
     adapter = adapter or get_adapter()
     embedder = get_embedding_provider()
     stats = {"new": 0, "updated": 0, "unchanged": 0, "chunks_upserted": 0}
@@ -32,7 +36,7 @@ def ingest(db: Session, adapter: SourceAdapter | None = None) -> dict:
         content_hash = _hash(rec["text"])
         doc = db.query(Document).filter(Document.source_url == rec["source_url"]).first()
 
-        if doc and doc.content_hash == content_hash:
+        if doc and doc.content_hash == content_hash and not force:
             stats["unchanged"] += 1
             continue
 

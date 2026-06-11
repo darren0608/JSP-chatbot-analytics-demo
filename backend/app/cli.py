@@ -81,12 +81,12 @@ def seed() -> None:
         db.close()
 
 
-def run_ingest() -> None:
+def run_ingest(force: bool = False) -> None:
     from .ingestion.pipeline import ingest
     init_db()
     db = SessionLocal()
     try:
-        print(ingest(db))
+        print(ingest(db, force=force))
     finally:
         db.close()
 
@@ -129,7 +129,9 @@ def main() -> None:
     if cmd == "seed":
         seed()
     elif cmd == "ingest":
-        run_ingest()
+        # --reembed: re-chunk + re-embed unchanged documents too (required
+        # after switching the embedding provider/model).
+        run_ingest(force="--reembed" in sys.argv[2:])
     elif cmd == "analyze":
         run_analyze()
     elif cmd == "cluster":

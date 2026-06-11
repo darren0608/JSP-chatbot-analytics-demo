@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
+    deepseek_api_key: str = ""  # JSP_DEEPSEEK_API_KEY — env only, never commit
+    deepseek_model: str = "deepseek-chat"
+    deepseek_base_url: str = "https://api.deepseek.com"
 
     # Ingestion
     source_adapter: str = "fixture"  # fixture | api | crawl

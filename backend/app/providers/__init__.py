@@ -25,6 +25,9 @@ def get_llm_provider() -> LLMProvider:
     if settings.llm_provider == "anthropic":
         from .anthropic_provider import AnthropicLLM
         return AnthropicLLM()
+    if settings.llm_provider == "deepseek":
+        from .deepseek_provider import DeepSeekLLM
+        return DeepSeekLLM()
     raise ValueError(
         f"Unknown LLM provider '{settings.llm_provider}'. "
         "Add an adapter in app/providers/ and register it here."

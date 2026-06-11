@@ -1,0 +1,68 @@
+[
+  {
+    "source_url": "fixture://job_role/data-analyst",
+    "content_type": "job_role",
+    "title": "[FIXTURE] Job Role: Data Analyst",
+    "text": "FIXTURE SAMPLE — placeholder content for development. Replace with the official Jobs-Skills feed before any real deployment.\n\nA data analyst collects, cleans, and interprets data sets to answer questions and support decisions. Typical responsibilities include preparing data for analysis, building dashboards and reports, and communicating findings to stakeholders.\n\nCommonly required skills for a data analyst include SQL for querying databases, a spreadsheet tool such as Excel, a data visualisation tool, and increasingly a scripting language such as Python or R. Statistical literacy and clear communication are core to the role.\n\nAdjacent roles include business analyst, data engineer, and data scientist. A data analyst who deepens statistical modelling and machine learning skills may progress toward data scientist roles, while one who deepens pipeline and infrastructure skills may progress toward data engineering."
+  },
+  {
+    "source_url": "fixture://job_role/software-developer",
+    "content_type": "job_role",
+    "title": "[FIXTURE] Job Role: Software Developer",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nA software developer designs, builds, tests, and maintains software applications. Day-to-day work typically involves writing and reviewing code, debugging, collaborating with designers and product managers, and deploying software.\n\nCommon skills include proficiency in one or more programming languages such as Python, Java, or JavaScript, version control with Git, testing practices, and familiarity with cloud platforms. Problem decomposition and teamwork are essential soft skills.\n\nCareer progression commonly moves from junior developer to senior developer, then branches into technical leadership (staff engineer, architect) or people management (engineering manager)."
+  },
+  {
+    "source_url": "fixture://job_role/cybersecurity-analyst",
+    "content_type": "job_role",
+    "title": "[FIXTURE] Job Role: Cybersecurity Analyst",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nA cybersecurity analyst monitors systems for security incidents, investigates alerts, and helps an organisation protect its information assets. Responsibilities include monitoring security tooling, triaging and responding to incidents, performing vulnerability assessments, and supporting security awareness.\n\nCommon skills include networking fundamentals, operating system administration, security monitoring tools, incident response procedures, and scripting for automation. Foundational knowledge areas include threat landscapes, access control, and security frameworks.\n\nAdjacent roles include security engineer, penetration tester, and governance-risk-compliance specialist."
+  },
+  {
+    "source_url": "fixture://skill/sql",
+    "content_type": "skill",
+    "title": "[FIXTURE] Skill: SQL",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nSQL (Structured Query Language) is the standard language for querying and manipulating relational databases. It is a foundational skill for data analysts, data engineers, business intelligence developers, and many software developer roles.\n\nProficiency levels typically progress from writing basic SELECT queries with filtering and joins, to aggregations and window functions, to query optimisation and schema design. SQL is frequently combined with spreadsheet tools, visualisation tools, and Python in analytics workflows."
+  },
+  {
+    "source_url": "fixture://skill/python-programming",
+    "content_type": "skill",
+    "title": "[FIXTURE] Skill: Python Programming",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nPython is a general-purpose programming language widely used in data analysis, machine learning, automation, and web development. For analytics roles, commonly used Python libraries include pandas for data manipulation and matplotlib or similar libraries for visualisation.\n\nPython is relevant to data analysts, data scientists, software developers, and increasingly to non-technical roles that automate repetitive work. It pairs naturally with SQL and data visualisation skills."
+  },
+  {
+    "source_url": "fixture://skill/data-visualisation",
+    "content_type": "skill",
+    "title": "[FIXTURE] Skill: Data Visualisation",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nData visualisation is the practice of representing data graphically so that patterns and insights are easy to understand. It covers choosing appropriate chart types, designing dashboards, and communicating findings to non-technical audiences.\n\nIt is a core skill for data analysts and business analysts and complements SQL and Python. Common tooling categories include business intelligence dashboard tools and charting libraries."
+  },
+  {
+    "source_url": "fixture://course/intro-data-analytics",
+    "content_type": "course",
+    "title": "[FIXTURE] Course: Introduction to Data Analytics (sample listing)",
+    "text": "FIXTURE SAMPLE — placeholder course listing for development. This is not a real course; fees, schedules, and eligibility must come from the official feed.\n\nAn introductory data analytics course typically covers: working with spreadsheets, basic SQL queries, introductory statistics, and building simple dashboards. Such courses are commonly aimed at career switchers and professionals who want to add data skills to their current role.\n\nTypical prerequisites are basic computer literacy; no prior programming experience is usually assumed at the introductory level."
+  },
+  {
+    "source_url": "fixture://career_pathway/marketing-to-data-analyst",
+    "content_type": "career_pathway",
+    "title": "[FIXTURE] Career Pathway: Switching into Data Analytics",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nA common pathway into data analytics from a non-technical role (for example marketing or operations) starts by applying data skills inside the current job: analysing campaign or operations data with spreadsheets, then learning SQL, then a visualisation tool, then Python.\n\nCareer switchers typically build a small portfolio of analysis projects using public data sets, which demonstrates practical skills to employers. Transferable strengths from prior roles — domain knowledge, stakeholder communication, and project delivery — are valued in analyst positions."
+  },
+  {
+    "source_url": "fixture://insight_article/skills-demand-overview",
+    "content_type": "insight_article",
+    "title": "[FIXTURE] Insight: Why Skills-Based Hiring Is Growing",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nEmployers increasingly describe vacancies in terms of skills rather than qualifications alone. For job seekers, this means that demonstrable skills — evidenced by portfolios, certifications, and work samples — can matter as much as formal credentials.\n\nFor planning a career move, a practical approach is: identify the target role, list the skills it commonly requires, map them against your current skills, and close the highest-priority gaps through training or on-the-job projects."
+  },
+  {
+    "source_url": "fixture://faq/how-to-use-assistant",
+    "content_type": "faq",
+    "title": "[FIXTURE] FAQ: What can JSP Assistant help with?",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nJSP Assistant answers questions about jobs, skills, careers, and training, grounded in ingested Jobs-Skills content. You can ask about the skills commonly required for a role, how roles relate to each other, pathways for switching careers, and what types of training exist for a skill.\n\nThe assistant only states what is in its sources and always cites them. It cannot provide personalised financial, legal, or medical advice, and it does not invent course fees, eligibility criteria, or salary figures."
+  },
+  {
+    "source_url": "fixture://sector/infocomm-technology",
+    "content_type": "sector",
+    "title": "[FIXTURE] Sector: Infocomm Technology",
+    "text": "FIXTURE SAMPLE — placeholder content for development.\n\nThe infocomm technology sector covers roles in software development, data and artificial intelligence, cybersecurity, infrastructure, and technology sales and support. Roles in this sector include software developer, data analyst, data scientist, cybersecurity analyst, and cloud engineer.\n\nSkills frequently associated with the sector include programming, cloud platforms, data analysis, and security fundamentals."
+  }
+]

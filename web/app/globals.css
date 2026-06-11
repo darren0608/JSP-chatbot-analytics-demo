@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-paper text-ink antialiased;
+}
+
+.prose-chat a {
+  @apply text-accent underline;
+}
+.prose-chat strong {
+  @apply font-semibold;
+}

@@ -1,0 +1,55 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: jsp
+      POSTGRES_PASSWORD: jsp
+      POSTGRES_DB: jsp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jsp"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    environment:
+      JSP_DATABASE_URL: postgresql+psycopg2://jsp:jsp@db:5432/jsp
+      JSP_JWT_SECRET: ${JSP_JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      JSP_LLM_PROVIDER: ${JSP_LLM_PROVIDER:-local}
+      JSP_EMBEDDING_PROVIDER: ${JSP_EMBEDDING_PROVIDER:-local}
+      JSP_SOURCE_ADAPTER: ${JSP_SOURCE_ADAPTER:-fixture}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  # Scheduled re-index + analytics batches (brief §5/§9). Interval in hours.
+  worker:
+    build: ./backend
+    command: python -m app.cli scheduler 24
+    environment:
+      JSP_DATABASE_URL: postgresql+psycopg2://jsp:jsp@db:5432/jsp
+      JSP_LLM_PROVIDER: ${JSP_LLM_PROVIDER:-local}
+      JSP_EMBEDDING_PROVIDER: ${JSP_EMBEDDING_PROVIDER:-local}
+      JSP_SOURCE_ADAPTER: ${JSP_SOURCE_ADAPTER:-fixture}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

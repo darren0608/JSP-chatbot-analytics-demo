@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     crawl_enabled: bool = False  # CrawlAdapter refuses to run unless true
     crawl_user_agent: str = "JSPAssistantBot/0.1 (+contact: product owner)"
     crawl_rate_limit_seconds: float = 2.0
+    # URL discovery for the crawler. Comma-separated env values; parsed lists
+    # are exposed via the *_list properties below.
+    crawl_seed_urls: str = ""    # JSP_CRAWL_SEED_URLS
+    crawl_sitemap_url: str = ""  # JSP_CRAWL_SITEMAP_URL (sitemap.xml or index)
+    crawl_allowed_domains: str = "jobsandskills.skillsfuture.gov.sg"
+    crawl_max_pages: int = 0     # 0 = unlimited; set a few hundred for first runs
 
     # RAG
     retrieval_top_k: int = 6
@@ -59,6 +65,18 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_prefix = "JSP_"
+
+    @staticmethod
+    def _split_csv(value: str) -> list[str]:
+        return [v.strip() for v in value.split(",") if v.strip()]
+
+    @property
+    def crawl_seed_url_list(self) -> list[str]:
+        return self._split_csv(self.crawl_seed_urls)
+
+    @property
+    def crawl_allowed_domain_list(self) -> list[str]:
+        return self._split_csv(self.crawl_allowed_domains)
 
 
 @lru_cache

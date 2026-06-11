@@ -1,3 +1,36 @@
+# Compose reads ./.env automatically for the ${VAR:-default} substitutions
+# below — copy .env.example to .env and edit. The same env block feeds the
+# backend AND the worker, so crawl/provider settings apply to both the API
+# and the scheduled re-index.
+x-jsp-env: &jsp-env
+  JSP_DATABASE_URL: postgresql+psycopg2://jsp:jsp@db:5432/jsp
+  JSP_JWT_SECRET: ${JSP_JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+  # Providers
+  JSP_LLM_PROVIDER: ${JSP_LLM_PROVIDER:-local}
+  JSP_EMBEDDING_PROVIDER: ${JSP_EMBEDDING_PROVIDER:-local}
+  JSP_EMBEDDING_MODEL: ${JSP_EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+  JSP_EMBEDDING_DIM: ${JSP_EMBEDDING_DIM:-256}
+  JSP_DEEPSEEK_API_KEY: ${JSP_DEEPSEEK_API_KEY:-}
+  JSP_DEEPSEEK_MODEL: ${JSP_DEEPSEEK_MODEL:-deepseek-chat}
+  JSP_DEEPSEEK_BASE_URL: ${JSP_DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+  JSP_ANTHROPIC_API_KEY: ${JSP_ANTHROPIC_API_KEY:-}
+  # Ingestion / crawling
+  JSP_SOURCE_ADAPTER: ${JSP_SOURCE_ADAPTER:-fixture}
+  JSP_CRAWL_ENABLED: ${JSP_CRAWL_ENABLED:-false}
+  JSP_CRAWL_SITEMAP_URL: ${JSP_CRAWL_SITEMAP_URL:-}
+  JSP_CRAWL_SEED_URLS: ${JSP_CRAWL_SEED_URLS:-}
+  JSP_CRAWL_ALLOWED_DOMAINS: ${JSP_CRAWL_ALLOWED_DOMAINS:-jobsandskills.skillsfuture.gov.sg}
+  JSP_CRAWL_MAX_PAGES: ${JSP_CRAWL_MAX_PAGES:-0}
+  # Retrieval / analytics tuning (re-tune when changing the embedder)
+  JSP_RETRIEVAL_MIN_SCORE: ${JSP_RETRIEVAL_MIN_SCORE:-0.18}
+  JSP_CLUSTER_SIMILARITY_THRESHOLD: ${JSP_CLUSTER_SIMILARITY_THRESHOLD:-0.40}
+  # Seed accounts (`app.cli seed`)
+  JSP_ADMIN_EMAIL: ${JSP_ADMIN_EMAIL:-admin@example.com}
+  JSP_ADMIN_PASSWORD: ${JSP_ADMIN_PASSWORD:-admin12345}
+  JSP_DEMO_EMAIL: ${JSP_DEMO_EMAIL:-demo@example.com}
+  JSP_DEMO_PASSWORD: ${JSP_DEMO_PASSWORD:-demo12345}
+  JSP_SEED_DEMO_CHATS: ${JSP_SEED_DEMO_CHATS:-true}
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -17,12 +50,9 @@ services:
 
   backend:
     build: ./backend
-    environment:
-      JSP_DATABASE_URL: postgresql+psycopg2://jsp:jsp@db:5432/jsp
-      JSP_JWT_SECRET: ${JSP_JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
-      JSP_LLM_PROVIDER: ${JSP_LLM_PROVIDER:-local}
-      JSP_EMBEDDING_PROVIDER: ${JSP_EMBEDDING_PROVIDER:-local}
-      JSP_SOURCE_ADAPTER: ${JSP_SOURCE_ADAPTER:-fixture}
+    environment: *jsp-env
+    volumes:
+      - hf_cache:/root/.cache/huggingface  # embedding model, downloaded once
     depends_on:
       db:
         condition: service_healthy
@@ -33,11 +63,9 @@ services:
   worker:
     build: ./backend
     command: python -m app.cli scheduler 24
-    environment:
-      JSP_DATABASE_URL: postgresql+psycopg2://jsp:jsp@db:5432/jsp
-      JSP_LLM_PROVIDER: ${JSP_LLM_PROVIDER:-local}
-      JSP_EMBEDDING_PROVIDER: ${JSP_EMBEDDING_PROVIDER:-local}
-      JSP_SOURCE_ADAPTER: ${JSP_SOURCE_ADAPTER:-fixture}
+    environment: *jsp-env
+    volumes:
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -53,3 +81,4 @@ services:
 
 volumes:
   pgdata:
+  hf_cache:

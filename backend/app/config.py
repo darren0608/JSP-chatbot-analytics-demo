@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     # Chat rate limit (per user)
     chat_rate_limit_per_minute: int = 20
 
+    # Seed accounts (`python -m app.cli seed`). Override these before seeding
+    # anything you'll actually use — the defaults are demo credentials.
+    admin_email: str = "admin@example.com"
+    admin_password: str = "admin12345"
+    demo_email: str = "demo@example.com"
+    demo_password: str = "demo12345"
+    # Replay the demo chat queries at seed time so Insights has data. Costs
+    # LLM calls when a real provider is enabled; set false to skip.
+    seed_demo_chats: bool = True
+
     # Analytics
     cluster_min_size: int = 2
     # Tuned for the local hashing embeddings: paraphrases score ~0.5+, unrelated

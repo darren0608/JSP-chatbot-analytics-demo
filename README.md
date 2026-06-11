@@ -10,10 +10,9 @@ Two web apps over one backend and one data layer:
   clustering, and dashboards where **every chart drills down to the real
   (PII-redacted) chats**.
 
-## Quick start (Docker)
+## Quick start (Docker, demo data)
 
 ```bash
-cd jsp
 cp .env.example .env          # optional; defaults are dev-safe
 docker compose up --build -d
 docker compose run --rm backend python -m app.cli seed   # one seed command
@@ -28,21 +27,65 @@ The seed command ingests the fixture corpus, creates the two accounts, replays
 a small set of demo chats, and runs the analytics + clustering batches so all
 Insights views have data immediately.
 
+## Real local run (live crawl + DeepSeek + real embeddings)
+
+Runs entirely on your machine; the only external call is chat generation to
+DeepSeek's API. Prereqs: Docker Desktop, a DeepSeek API key, and the
+authorization/decision records in `docs/CRAWL_AUTHORIZATION.md` and
+`docs/PROVIDER_DECISION.md`.
+
+1. **Verify the target first** — work through the first-run checklist in
+   `docs/CRAWL_AUTHORIZATION.md` (robots.txt, sitemap location, whether a
+   structured feed exists, server- vs JS-rendered). It determines the crawl
+   settings below and whether crawling will work at all.
+2. **Configure `.env`** — `cp .env.example .env`, then uncomment/fill the
+   "real run" blocks:
+   - fresh `JSP_JWT_SECRET` (command in the file),
+   - `JSP_LLM_PROVIDER=deepseek` + `JSP_DEEPSEEK_API_KEY=...`,
+   - `JSP_EMBEDDING_PROVIDER=sentence_transformers` + `JSP_EMBEDDING_DIM=384`
+     (+ the suggested `JSP_RETRIEVAL_MIN_SCORE` / threshold values),
+   - `JSP_SOURCE_ADAPTER=crawl`, `JSP_CRAWL_ENABLED=true`, the sitemap/seed
+     URLs from step 1, and `JSP_CRAWL_MAX_PAGES=200` for the first bounded run,
+   - your own `JSP_ADMIN_PASSWORD` / `JSP_DEMO_PASSWORD`, and
+     `JSP_SEED_DEMO_CHATS=false` unless you want seed-time DeepSeek calls.
+3. **Bring it up and seed** (the seed triggers the first crawl — with the
+   2s/page rate limit, 200 pages ≈ 7 minutes; the embedding model ~90MB
+   downloads once into a shared volume):
+   ```bash
+   docker compose up --build -d
+   docker compose run --rm backend python -m app.cli seed
+   ```
+4. **Verify**:
+   - chunks carry real portal URLs, not `fixture://`:
+     `docker compose exec db psql -U jsp -c "SELECT content_type, COUNT(*) FROM documents GROUP BY 1;"`
+   - log in at http://localhost:3000 with your admin credentials, ask
+     something like "What skills does a data analyst need?", and check the
+     answer streams and cites a working portal link,
+   - `/insights` loads for the admin account.
+5. **Scale up** — review extraction quality and content-type routing (tune
+   `CONTENT_TYPE_RULES` in `backend/app/ingestion/adapters.py` if needed),
+   then raise/remove `JSP_CRAWL_MAX_PAGES` and `docker compose restart worker`.
+   The worker re-crawls (delta-only) + re-runs analytics every 24h.
+
+Switching embedders later? Embedding dimensions must match the pgvector
+columns: change `JSP_EMBEDDING_DIM`, recreate the db volume (or migrate), and
+force `docker compose run --rm backend python -m app.cli ingest --reembed`.
+
 ## Quick start (no Docker — SQLite fallback)
 
 ```bash
-cd jsp/backend
+cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m app.cli seed
 .venv/bin/uvicorn app.main:app --port 8000
 # in another terminal:
-cd jsp/web && npm install && npm run dev      # http://localhost:3000
+cd web && npm install && npm run dev      # http://localhost:3000
 ```
 
 Tests (also run against the SQLite fallback, no services needed):
 
 ```bash
-cd jsp/backend && .venv/bin/python -m pytest tests
+cd backend && .venv/bin/python -m pytest tests
 ```
 
 The suite covers the brief's acceptance criteria (§13): grounded answer with a

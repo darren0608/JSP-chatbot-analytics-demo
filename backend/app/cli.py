@@ -14,14 +14,20 @@ import logging
 import sys
 import time
 
+from .config import settings
 from .db import SessionLocal, init_db
 
 log = logging.getLogger("jsp.cli")
 
-ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "admin12345"
-DEMO_EMAIL = "demo@example.com"
-DEMO_PASSWORD = "demo12345"
+# Seed accounts come from config (JSP_ADMIN_EMAIL / JSP_ADMIN_PASSWORD /
+# JSP_DEMO_EMAIL / JSP_DEMO_PASSWORD). The defaults are demo credentials —
+# override them before seeding an instance you'll actually use.
+ADMIN_EMAIL = settings.admin_email
+ADMIN_PASSWORD = settings.admin_password
+DEMO_EMAIL = settings.demo_email
+DEMO_PASSWORD = settings.demo_password
+
+_DEFAULT_PASSWORDS = {"admin12345", "demo12345"}
 
 # Demo queries exercise every Insights view (intents, entities, clusters,
 # content gaps). They are synthetic usage of the app itself — not JSP content.
@@ -47,6 +53,14 @@ def seed() -> None:
     from .rag.chat import stream_chat
     from .security import hash_password
 
+    if (settings.source_adapter != "fixture"
+            and _DEFAULT_PASSWORDS & {ADMIN_PASSWORD, DEMO_PASSWORD}):
+        log.warning(
+            "Seeding a NON-FIXTURE instance with the default demo passwords. "
+            "Set JSP_ADMIN_PASSWORD / JSP_DEMO_PASSWORD before using this "
+            "instance for real."
+        )
+
     init_db()
     db = SessionLocal()
     try:
@@ -65,18 +79,23 @@ def seed() -> None:
                         role="user", consent_analytics=True)
             db.add(demo)
             db.commit()
-            for q in DEMO_QUERIES:
-                conv = Conversation(user_id=demo.id)
-                db.add(conv)
-                db.flush()
-                for _ in stream_chat(db, conv, q):
-                    pass
+            # Demo-chat replay populates every Insights view. Skippable via
+            # JSP_SEED_DEMO_CHATS=false — with a real LLM provider enabled,
+            # each query is a billable API call.
+            if settings.seed_demo_chats:
+                for q in DEMO_QUERIES:
+                    conv = Conversation(user_id=demo.id)
+                    db.add(conv)
+                    db.flush()
+                    for _ in stream_chat(db, conv, q):
+                        pass
         db.commit()
 
         log.info("analytics: %s", analyze_messages(db))
         log.info("clustering: %s", run_clustering(db))
-        log.info("seed complete. admin=%s/%s demo=%s/%s",
-                 ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_EMAIL, DEMO_PASSWORD)
+        log.info("seed complete. admin=%s demo=%s (passwords from "
+                 "JSP_ADMIN_PASSWORD / JSP_DEMO_PASSWORD)",
+                 ADMIN_EMAIL, DEMO_EMAIL)
     finally:
         db.close()
 

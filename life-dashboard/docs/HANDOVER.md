@@ -86,7 +86,28 @@ first** — it never guesses.
 
 ---
 
-## 3. Where your data lives (the Google Sheet tabs)
+## 3. The connections (integrations) at a glance
+
+Everything below is **optional** — the app works without any of them (it shows
+sample data). Add them one at a time (see DEPLOY.md). "Direction" tells you
+whether the app only *reads* from a service or also *writes* to it.
+
+| Connection | What it gives you | Direction | Turned on by | Good to know |
+|------------|-------------------|-----------|--------------|--------------|
+| **Google Calendar** | Your events on the Time tab + Home agenda. | Read-only | `CALENDAR_PERSONAL_IDS` (+ `CALENDAR_BUSY_IDS`, `CALENDAR_BIRTHDAYS_ID`) | Your own calendars show in full. A **work/government** calendar goes in `CALENDAR_BUSY_IDS` and appears **only as "Busy"** — its titles/details are never read. |
+| **TickTick** | Your TickTick to-dos appear alongside Sheet tasks; you can add/complete/delete them from the dashboard and the bot. | Read **and** write | `TICKTICK_ACCESS_TOKEN` | **Important quirk:** TickTick's feed only lists *unfinished* tasks, so a completed task disappears from it. The app keeps its own private note (the `task_overrides` tab) so "complete then delete" never errors. |
+| **Interactive Brokers (IBKR)** | Auto-pulls your brokerage holdings into the `holdings` tab. | **Read-only** (never trades or moves money) | `IBKR_FLEX_TOKEN`, `IBKR_FLEX_QUERY_ID` | Uses IBKR's "Flex" report. A refresh **replaces only the IBKR rows** and **keeps your manual rows** (CPF, SRS, cash). Trigger it with the "↻ IBKR" button or the daily job. |
+| **Telegram bot** | Text the dashboard to capture and ask questions on the go. | Read **and** write | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (+ `TELEGRAM_URL_SECRET`) | Only **your one** chat is ever answered. Anything destructive asks "yes/no" first. Needs the `telegramPoll` trigger running. |
+| **Gemini AI** (optional) | Nicely phrases the daily briefing and understands fuzzier bot messages. | Read-only | `GCP_PROJECT_ID` (+ `GCP_LOCATION`) | The **only** paid piece (tiny cost, cached). Everything still works without it — plain wording + keyword matching take over. |
+| **Currency rates (FX)** | Converts foreign holdings to SGD for the headline totals. | Read-only | (none — free & keyless) | Refreshes daily into the `fx` tab; totals are labelled **"est."** because rates are approximate. |
+
+> **Two services let the app write back: TickTick and Telegram.** Everything
+> else (Calendar, IBKR, Gemini, FX) is read-only. Nothing ever places trades or
+> moves money.
+
+---
+
+## 4. Where your data lives (the Google Sheet tabs)
 
 Each tab is a simple table. You **can** edit the "safe to hand-edit" ones
 directly in Google Sheets; the app will pick up changes on the next refresh.
@@ -111,7 +132,7 @@ directly in Google Sheets; the app will pick up changes on the next refresh.
 
 ---
 
-## 4. Where the secrets live (Script Properties)
+## 5. Where the secrets live (Script Properties)
 
 Apps Script editor → **Project Settings → Script Properties**. You'll see
 **names** here; the app never shows the values on the web page. You only touch
@@ -131,7 +152,7 @@ managed by the app — leave them.)
 
 ---
 
-## 5. "How do I…" — routine tasks
+## 6. "How do I…" — routine tasks
 
 - **See what changed recently** → open the Sheet's `audit` tab (newest at the top).
 - **Add a manual investment (e.g. CPF balance)** → add a row in the `holdings`
@@ -146,7 +167,7 @@ managed by the app — leave them.)
 
 ---
 
-## 6. When something looks wrong
+## 7. When something looks wrong
 
 | You see… | What it means / what to do |
 |----------|----------------------------|
@@ -159,7 +180,7 @@ managed by the app — leave them.)
 
 ---
 
-## 7. If you need a developer (the 2-minute brief for them)
+## 8. If you need a developer (the 2-minute brief for them)
 
 - It's **Google Apps Script + one Google Sheet**. Source is in `src/` (one `.gs`
   per area; see the README "Architecture" table for the one-line map).

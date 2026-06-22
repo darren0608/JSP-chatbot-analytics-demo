@@ -23,15 +23,27 @@ function _ttFetch(method, path, payload) {
     muteHttpExceptions: true
   };
   if (payload) opts.payload = JSON.stringify(payload);
-  var resp = UrlFetchApp.fetch(TICKTICK_BASE + path, opts);
-  var code = resp.getResponseCode();
+  // Retry only idempotent GETs on transient 5xx — never retry writes.
+  var attempts = method === 'get' ? 2 : 1;
+  var resp, code;
+  for (var i = 0; i < attempts; i++) {
+    resp = UrlFetchApp.fetch(TICKTICK_BASE + path, opts);
+    code = resp.getResponseCode();
+    if (code < 500) break;
+    if (i < attempts - 1) Utilities.sleep(300 * (i + 1));
+  }
   if (code >= 400) throw new Error('TickTick API ' + code + ': ' + resp.getContentText());
   var body = resp.getContentText();
   return body ? JSON.parse(body) : {};
 }
 
 // Returns undone tasks across the user's projects, flattened to a simple shape.
+// Memoised per execution so a complete/delete (which looks tasks up) plus the
+// section read don't each pay the N+1 round-trips.
 function tickTickListTasks() {
+  return memoExec('ticktick_list', _tickTickListTasksUncached);
+}
+function _tickTickListTasksUncached() {
   var projects = _ttFetch('get', '/project') || [];
   var tasks = [];
   projects.forEach(function (p) {

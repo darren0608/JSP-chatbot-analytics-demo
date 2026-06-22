@@ -118,3 +118,25 @@ function tryOr(fallback, fn) {
     return { ok: false, value: fallback, error: (e && e.message) ? e.message : String(e) };
   }
 }
+
+// Per-execution memo. Apps Script gives each invocation a fresh global scope, so
+// this safely de-dupes expensive reads (e.g. the TickTick N+1) within a single
+// request — getTasksSection and getTimeSection both need the task list.
+var __REQUEST_MEMO__ = {};
+function memoExec(key, fn) {
+  if (__REQUEST_MEMO__.hasOwnProperty(key)) return __REQUEST_MEMO__[key];
+  var v = fn();
+  __REQUEST_MEMO__[key] = v;
+  return v;
+}
+function clearExecMemo() { __REQUEST_MEMO__ = {}; }
+
+// Guard free-text inputs so we never try to write a value larger than a Sheets
+// cell allows (~50k chars) and to blunt accidental/abusive huge payloads.
+var MAX_TEXT = 2000;
+function requireText(value, label) {
+  var s = String(value == null ? '' : value).trim();
+  if (!s) throw new Error((label || 'Value') + ' required');
+  if (s.length > MAX_TEXT) throw new Error((label || 'Value') + ' too long (max ' + MAX_TEXT + ' chars)');
+  return s;
+}

@@ -13,7 +13,7 @@ const SRC = path.join(__dirname, '..', 'src');
 
 // Load order matters only for readability — all become globals in one context.
 const FILES = [
-  'util.gs', 'config.gs', 'log.gs', 'store.gs',
+  'util.gs', 'cache.gs', 'config.gs', 'log.gs', 'store.gs',
   'tasks.gs', 'ticktick.gs', 'calendar.gs', 'ibkr.gs', 'finances.gs',
   'habits.gs', 'bills.gs', 'goals.gs', 'notes.gs', 'countdowns.gs',
   'nlp.gs', 'ai.gs', 'capture.gs', 'telegram.gs', 'briefing.gs',

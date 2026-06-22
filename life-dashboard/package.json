@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "test": "node tests/run.js",
+    "preview": "node tools/build-preview.js",
     "deploy": "clasp push && clasp deploy"
   },
   "license": "MIT"

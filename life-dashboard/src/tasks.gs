@@ -30,6 +30,9 @@ function _normalizeTask(t) {
 }
 
 // Live + mock-aware read of all tasks (any status). Used by the section build.
+// The expensive part — TickTick's N+1 fetches — is memoised inside
+// tickTickListTasks(), so this re-applies cheap Sheet reads + local overrides
+// fresh on every call (correct even after a write within one execution).
 function _readAllTasks() {
   var hasSheet = isConfigured('sheet');
   var hasTT = isConfigured('ticktick');
@@ -81,10 +84,10 @@ function _requireWritable() {
 function addTask(title, opts) {
   _requireWritable();
   opts = opts || {};
-  if (!title || !String(title).trim()) throw new Error('Task title required');
+  var cleanTitle = requireText(title, 'Task title');
   var task = _normalizeTask({
     id: genId('t'),
-    title: String(title).trim(),
+    title: cleanTitle,
     source: 'sheet',
     due: opts.due || null,
     reminder_at: opts.reminder_at || null,

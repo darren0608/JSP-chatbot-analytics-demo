@@ -16,8 +16,7 @@ function getNotesSection() {
 
 function addNote(text) {
   if (!isConfigured('sheet')) throw new Error('Sheet not configured');
-  if (!text || !String(text).trim()) throw new Error('Note text required');
-  var n = { id: genId('n'), text: String(text).trim(), created_at: now().toISOString() };
+  var n = { id: genId('n'), text: requireText(text, 'Note text'), created_at: now().toISOString() };
   storeAppend(NOTES_TAB, NOTE_HEADERS, n);
   auditLog('note.add', n.id, {});
   return { ok: true, note: n };

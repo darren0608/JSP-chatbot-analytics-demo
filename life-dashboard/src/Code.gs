@@ -17,10 +17,11 @@
 function doGet(e) {
   var tpl = HtmlService.createTemplateFromFile('dashboard');
   tpl.bootState = JSON.stringify(getDashboardState());
+  // Default (SAMEORIGIN) X-Frame protection — a private personal dashboard has
+  // no reason to be embeddable cross-origin (avoids clickjacking).
   return tpl.evaluate()
     .setTitle('Life Dashboard')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
 // JSON router for any external/webhook caller. Wrapped so it can never throw.
@@ -64,7 +65,14 @@ function buildSection(name, fn, emptyFallback) {
 }
 
 // --- Full dashboard state ---------------------------------------------------
+// Cached briefly (CacheService) so repeated page loads / refreshes don't re-hit
+// Calendar, TickTick and Vertex AI. Mutations bust the cache via auditLog.
 function getDashboardState() {
+  clearExecMemo();
+  return cached('dash_state', 30, _buildDashboardState);
+}
+
+function _buildDashboardState() {
   var sections = {
     time:       buildSection('time', getTimeSection, { timeline: [], followUps: [] }),
     tasks:      buildSection('tasks', getTasksSection, { items: [] }),

@@ -36,7 +36,13 @@ function _templateBriefing(f) {
   return parts.join(', ') + '.';
 }
 
+// Cached for 30 min so the (paid) AI call doesn't fire on every dashboard load.
+// pushDailyBriefing() forces a fresh one for the morning Telegram message.
 function buildBriefing() {
+  return cached('briefing', 1800, _buildBriefingUncached);
+}
+
+function _buildBriefingUncached() {
   var f = gatherBriefingFacts();
   var template = _templateBriefing(f);
   if (isConfigured('ai')) {
@@ -50,6 +56,7 @@ function buildBriefing() {
 
 // Time-trigger entrypoint: push the morning briefing to Telegram.
 function pushDailyBriefing() {
+  cacheRemove('briefing');           // force a fresh, up-to-date briefing
   var b = buildBriefing();
   var greeting = _greeting() + '! ' + b.text;
   if (isConfigured('telegram')) {

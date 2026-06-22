@@ -22,6 +22,11 @@ function auditLog(action, target, detail, actor) {
   } catch (e) {
     try { Logger.log('[audit-fallback] ' + JSON.stringify(row)); } catch (e2) {}
   }
+  // Every write funnels through here, so this is the right place to invalidate
+  // cached reads — the next getDashboardState() rebuilds fresh — and to drop the
+  // per-execution memo so a read after a write in the same call sees the change.
+  tryOr(null, cacheBust);
+  clearExecMemo();
   return row;
 }
 

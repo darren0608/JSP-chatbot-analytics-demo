@@ -214,10 +214,23 @@ test('IBKR refresh: replaces only IBKR rows, preserves manual rows, audits', () 
 
 test('overlapping IBKR refresh returns a friendly busy message', () => {
   const { ctx } = loadApp((c, store) => {
-    setProps(store, { SHEET_ID: 's', IBKR_FLEX_TOKEN: 't', IBKR_FLEX_QUERY_ID: 'q', IBKR_REFRESH_INPROGRESS: '1' });
+    // A fresh in-progress timestamp blocks a concurrent run.
+    setProps(store, { SHEET_ID: 's', IBKR_FLEX_TOKEN: 't', IBKR_FLEX_QUERY_ID: 'q', IBKR_REFRESH_INPROGRESS: String(FIXED_NOW) });
   });
   const res = ctx.refreshIbkr();
   eq(res.ok, false); ok(res.busy === true, 'flagged busy'); ok(/already running/i.test(res.message));
+});
+
+test('stale IBKR in-progress flag does NOT block a new refresh', () => {
+  const { ctx } = loadApp((c, store) => {
+    // Timestamp from ~10 min ago → treated as a dead run, not "busy".
+    setProps(store, { SHEET_ID: 's', IBKR_FLEX_TOKEN: 't', IBKR_FLEX_QUERY_ID: 'q', IBKR_REFRESH_INPROGRESS: String(FIXED_NOW - 10 * 60 * 1000) });
+    seedSheet(store, 'holdings', c.HOLDING_HEADERS, []);
+    store.fetch = (url) => /SendRequest/.test(url)
+      ? { code: 200, body: '<x><Status>Success</Status><ReferenceCode>R</ReferenceCode><Url>https://x/GetStatement</Url></x>' }
+      : { code: 200, body: '<FlexQueryResponse><OpenPositions><OpenPosition symbol="VOO" assetCategory="ETF" position="1" costBasisPrice="1" positionValue="1" currency="USD"/></OpenPositions></FlexQueryResponse>' };
+  });
+  eq(ctx.refreshIbkr().ok, true, 'stale lock cleared');
 });
 
 test('missing IBKR creds → plain-language error, not a stack trace', () => {
@@ -352,6 +365,34 @@ test('quick-capture routing: task / note / query / confirm', () => {
   eq(ctx.quickCapture('note: remember the milk').kind, 'note');
   eq(ctx.quickCapture('portfolio').kind, 'query');
   eq(ctx.quickCapture('delete Foo').kind, 'confirm'); // execute defaults off
+});
+
+// ===========================================================================
+// Caching / cost controls
+// ===========================================================================
+test('briefing is cached — AI is not called on every dashboard build', () => {
+  const { ctx, store } = loadApp((c, s) => {
+    setProps(s, { GCP_PROJECT_ID: 'proj' });
+    s.fetch = (url) => /aiplatform/.test(url)
+      ? { code: 200, body: JSON.stringify({ candidates: [{ content: { parts: [{ text: 'A calm day ahead.' }] } }] }) }
+      : { code: 200, body: '{}' };
+  });
+  ctx.buildBriefing();
+  ctx.buildBriefing();
+  const vertexCalls = store.fetchLog.filter(f => /aiplatform/.test(f.url)).length;
+  eq(vertexCalls, 1, 'second build served from cache');
+});
+
+test('a write busts the dashboard-state cache (fresh after mutation)', () => {
+  const { ctx } = loadApp((c, store) => { setProps(store, { SHEET_ID: 's' }); seedSheet(store, 'tasks', c.TASK_HEADERS, []); });
+  eq(ctx.getDashboardState().sections.tasks.data.items.length, 0); // populates cache
+  ctx.addTask('New thing');                                        // busts cache
+  eq(ctx.getDashboardState().sections.tasks.data.items.length, 1, 'reflects the write');
+});
+
+test('free-text inputs are length-guarded', () => {
+  const { ctx } = sheetApp();
+  throws(() => ctx.addTask('x'.repeat(5000)), 'over-long title rejected');
 });
 
 // ===========================================================================

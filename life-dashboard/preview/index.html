@@ -1,0 +1,2880 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+
+<meta charset="utf-8">
+<title>Life Dashboard</title>
+<style>
+/* ========================================================================
+   DESIGN TOKENS  (see docs/STYLE_GUIDE.md)
+   Single source of truth. No hard-coded hex/px in components below.
+   ===================================================================== */
+:root {
+  /* color — light */
+  --bg: #f6f7f9;            --surface: #ffffff;        --surface-2: #f0f2f5;
+  --text: #16181d;          --text-muted: #646b78;     --border: #e4e7ec;
+  --accent: #4f46e5;        --accent-weak: #eceafe;
+  --success: #15935b;       --warning: #c2730a;        --danger: #d23b3b;  --info: #2563eb;
+  --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+  --shadow-2: 0 4px 12px rgba(16,24,40,.08), 0 2px 6px rgba(16,24,40,.06);
+  /* spacing — 4px base */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s6:24px; --s8:32px; --s12:48px;
+  /* radius */ --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
+  /* type */
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-display:28px; --fs-h1:22px; --fs-h2:17px; --fs-body:15px; --fs-cap:13px; --fs-micro:11px;
+  --z-nav:50; --z-toast:80; --z-modal:90;
+}
+[data-theme="dark"] {
+  --bg:#0e1014; --surface:#171a21; --surface-2:#1f232c;
+  --text:#e9edf4; --text-muted:#9aa3b2; --border:#272c36;
+  --accent:#7c83ff; --accent-weak:#23263a;
+  --success:#33c27f; --warning:#e0973a; --danger:#f06a6a; --info:#5b9bff;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 6px 18px rgba(0,0,0,.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0e1014; --surface:#171a21; --surface-2:#1f232c;
+    --text:#e9edf4; --text-muted:#9aa3b2; --border:#272c36;
+    --accent:#7c83ff; --accent-weak:#23263a;
+    --success:#33c27f; --warning:#e0973a; --danger:#f06a6a; --info:#5b9bff;
+    --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 6px 18px rgba(0,0,0,.45);
+  }
+}
+
+/* ===== base / reset ===== */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);font-size:var(--fs-body);color:var(--text);
+  background:var(--bg);line-height:1.45;-webkit-font-smoothing:antialiased;
+  padding-bottom:84px}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== layout shell ===== */
+.topbar{position:sticky;top:0;z-index:var(--z-nav);background:var(--surface);
+  border-bottom:1px solid var(--border);padding:var(--s3) var(--s4);
+  display:flex;align-items:center;gap:var(--s3)}
+.topbar h1{font-size:var(--fs-h1);font-weight:650;letter-spacing:-.01em}
+.spacer{flex:1}
+.shell{max-width:880px;margin:0 auto;padding:var(--s4)}
+.grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.view{display:none}.view.active{display:block;animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ===== components ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:var(--s4);box-shadow:var(--shadow-1)}
+.card h2{font-size:var(--fs-h2);font-weight:600;display:flex;align-items:center;gap:var(--s2)}
+.card .sub{color:var(--text-muted);font-size:var(--fs-cap);margin-top:2px}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--s3)}
+
+.stat{display:flex;flex-direction:column;gap:var(--s1)}
+.stat .label{color:var(--text-muted);font-size:var(--fs-cap)}
+.stat .num{font-size:var(--fs-display);font-weight:680;letter-spacing:-.02em}
+.stat .meta{font-size:var(--fs-cap);color:var(--text-muted)}
+
+.item{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) 0;border-bottom:1px solid var(--border)}
+.item:last-child{border-bottom:none}
+.item .lead{width:34px;height:34px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:var(--surface-2);font-size:16px;flex:none}
+.item .body{flex:1;min-width:0}
+.item .title{font-weight:500}
+.item .meta{font-size:var(--fs-cap);color:var(--text-muted);display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.item .trail{display:flex;gap:var(--s2);flex:none}
+
+.badge{font-size:var(--fs-micro);font-weight:600;padding:2px 8px;border-radius:var(--r-full);
+  background:var(--surface-2);color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em}
+.badge.calendar{background:#e7efff;color:#2456b6}
+.badge.ticktick{background:#e9f8ef;color:#1c7a48}
+.badge.sheet{background:#f1ecff;color:#5a3fc0}
+.badge.ibkr{background:#fff2e2;color:#a35b12}
+[data-theme="dark"] .badge.calendar{background:#1b2942;color:#7fa8ff}
+[data-theme="dark"] .badge.ticktick{background:#13301f;color:#54d08c}
+[data-theme="dark"] .badge.sheet{background:#241c3f;color:#a98bff}
+[data-theme="dark"] .badge.ibkr{background:#3a2710;color:#e0973a}
+.badge.overdue{background:#fde8e8;color:var(--danger)}
+[data-theme="dark"] .badge.overdue{background:#3a1d1d;color:#f06a6a}
+
+.btn{padding:8px 14px;border-radius:var(--r-sm);font-weight:550;font-size:var(--fs-cap);
+  background:var(--surface-2);color:var(--text);transition:filter .15s,background .15s}
+.btn:hover{filter:brightness(.97)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.danger{background:transparent;color:var(--danger)}
+.btn.ghost{background:transparent;color:var(--text-muted)}
+.btn.icon{width:36px;height:36px;padding:0;display:grid;place-items:center;border-radius:var(--r-sm)}
+
+.chip{font-size:var(--fs-cap);font-weight:600;padding:4px 10px;border-radius:var(--r-full);
+  display:inline-flex;align-items:center;gap:6px;cursor:default}
+.chip .dot{width:8px;height:8px;border-radius:50%}
+.chip.live{background:var(--accent-weak);color:var(--accent)} .chip.live .dot{background:var(--success)}
+.chip.mock{background:var(--surface-2);color:var(--text-muted)} .chip.mock .dot{background:var(--text-muted)}
+.chip.degraded{background:#fde8e8;color:var(--danger)} .chip.degraded .dot{background:var(--danger)}
+[data-theme="dark"] .chip.degraded{background:#3a1d1d}
+
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:var(--z-nav);
+  background:var(--surface);border-top:1px solid var(--border);
+  display:flex;padding:6px max(env(safe-area-inset-left),8px) calc(6px + env(safe-area-inset-bottom))}
+.navbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 0;color:var(--text-muted);font-size:var(--fs-micro);border-radius:var(--r-sm)}
+.navbtn .ic{font-size:20px;line-height:1}
+.navbtn.active{color:var(--accent)}
+.navbtn:focus-visible{outline:2px solid var(--accent)}
+
+.ring{--p:0;width:46px;height:46px;border-radius:50%;flex:none;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--surface-2) 0);
+  display:grid;place-items:center}
+.ring::after{content:"";width:34px;height:34px;border-radius:50%;background:var(--surface)}
+.ring span{position:absolute;font-size:var(--fs-micro);font-weight:650}
+.ringwrap{position:relative;display:grid;place-items:center}
+
+.bar{height:8px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
+
+.empty{text-align:center;color:var(--text-muted);padding:var(--s8) var(--s4);font-size:var(--fs-cap)}
+.skel{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));
+  background-size:200% 100%;animation:sh 1.2s infinite;border-radius:var(--r-sm);height:14px}
+@keyframes sh{to{background-position:-200% 0}}
+
+.toast-wrap{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:var(--z-toast);
+  display:flex;flex-direction:column;gap:var(--s2);width:min(420px,92vw)}
+.toast{background:var(--text);color:var(--bg);padding:var(--s3) var(--s4);border-radius:var(--r-md);
+  box-shadow:var(--shadow-2);font-size:var(--fs-cap);animation:fade .15s}
+.toast.err{background:var(--danger);color:#fff}.toast.ok{background:var(--success);color:#fff}
+
+.modal-bg{position:fixed;inset:0;z-index:var(--z-modal);background:rgba(0,0,0,.45);
+  display:none;place-items:center;padding:var(--s4)}
+.modal-bg.open{display:grid}
+.modal{background:var(--surface);border-radius:var(--r-lg);padding:var(--s6);width:min(420px,94vw);box-shadow:var(--shadow-2)}
+.modal h3{font-size:var(--fs-h2);margin-bottom:var(--s3)}
+.modal .row{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s6)}
+
+.input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);
+  background:var(--surface-2);color:var(--text);font:inherit}
+.input:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+.tip{cursor:help;color:var(--text-muted);font-size:13px;border:1px solid var(--border);
+  width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center}
+.pos{color:var(--success)}.neg{color:var(--danger)}
+.warnbar{background:#fde8e8;color:var(--danger);border-radius:var(--r-md);padding:var(--s2) var(--s3);
+  font-size:var(--fs-cap);margin-bottom:var(--s4)}
+[data-theme="dark"] .warnbar{background:#3a1d1d}
+.section-gap>*+*{margin-top:var(--s4)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="greet">Life Dashboard</h1>
+    <div class="spacer"></div>
+    <span id="modeChip" class="chip mock" title=""><span class="dot"></span><span class="lbl">Mock</span></span>
+    <button class="btn icon" id="searchBtn" aria-label="Search">🔍</button>
+    <button class="btn icon" id="captureBtn" aria-label="Quick capture (n)">＋</button>
+    <button class="btn icon" id="themeBtn" aria-label="Toggle theme">🌓</button>
+  </header>
+
+  <main class="shell">
+    <div id="warn"></div>
+
+    <!-- HOME -->
+    <section class="view active section-gap" id="view-home">
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="stat"><span class="label" id="homeDate"></span>
+          <span class="num" id="homeGreet">Hello</span>
+          <span class="meta" id="homeSummary"></span></div>
+      </div>
+      <div class="grid" id="homeStats" style="margin-bottom:var(--s4)"></div>
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="card-head"><div><h2>Today <span class="tip" title="Your agenda for today, merged from Calendar and timed tasks.">i</span></h2><div class="sub">Calendar + timed tasks</div></div></div>
+        <div id="homeAgenda"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Habits</h2><div class="sub">Daily streaks & weekly rings</div></div></div>
+        <div id="homeHabits" style="display:flex;gap:var(--s4);flex-wrap:wrap"></div>
+      </div>
+    </section>
+
+    <!-- TIME -->
+    <section class="view" id="view-time">
+      <div class="card">
+        <div class="card-head"><div><h2>Timeline <span class="tip" title="Next 7 days from your owned Google Calendars + timed tasks. A work/gov calendar shows only as title-less 'Busy'.">i</span></h2><div class="sub">Next 7 days · Calendar + timed tasks</div></div></div>
+        <div id="timeline"></div>
+      </div>
+      <div class="card" style="margin-top:var(--s4)">
+        <div class="card-head"><div><h2>Follow-ups</h2><div class="sub">Untimed tasks, oldest first</div></div></div>
+        <div id="followups"></div>
+      </div>
+    </section>
+
+    <!-- TASKS -->
+    <section class="view" id="view-tasks">
+      <div class="card">
+        <div class="card-head"><div><h2>Tasks <span class="tip" title="Open tasks from your Sheet + TickTick. Soft-delete only; every change is audited.">i</span></h2><div class="sub">Sheet + TickTick</div></div></div>
+        <form id="addTaskForm" style="display:flex;gap:var(--s2);margin-bottom:var(--s3)">
+          <input class="input" id="newTask" placeholder="Add a task… (e.g. Pay rent due Friday)" autocomplete="off">
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <div id="taskList"></div>
+      </div>
+    </section>
+
+    <!-- MONEY -->
+    <section class="view" id="view-money">
+      <div class="card">
+        <div class="card-head">
+          <div><h2>Finances <span class="tip" title="Holdings from IBKR Flex + manual rows in your Sheet (CPF/SRS). Read-only — never executes trades.">i</span></h2><div class="sub">IBKR + manual · read-only</div></div>
+          <button class="btn" id="refreshIbkr">↻ IBKR</button>
+        </div>
+        <div class="grid" id="moneyStats" style="margin-bottom:var(--s4)"></div>
+        <div id="holdings"></div>
+      </div>
+    </section>
+
+    <!-- MORE -->
+    <section class="view section-gap" id="view-more">
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="card-head"><div><h2>Bills & subscriptions</h2><div class="sub" id="billsSub"></div></div></div>
+        <div id="bills"></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="card-head"><div><h2>Goals</h2></div></div><div id="goals"></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="card-head"><div><h2>Countdowns</h2></div></div><div id="countdowns"></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--s4)">
+        <div class="card-head"><div><h2>Notes</h2></div></div><div id="notes"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Settings & diagnostics</h2><div class="sub">Secrets are write-only; values never shown here.</div></div>
+          <button class="btn" id="diagBtn">Test integrations</button></div>
+        <div id="settings"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottomnav" role="tablist">
+    <button class="navbtn active" data-view="home" role="tab"><span class="ic">🏠</span>Home</button>
+    <button class="navbtn" data-view="time" role="tab"><span class="ic">📅</span>Time</button>
+    <button class="navbtn" data-view="tasks" role="tab"><span class="ic">✓</span>Tasks</button>
+    <button class="navbtn" data-view="money" role="tab"><span class="ic">💰</span>Money</button>
+    <button class="navbtn" data-view="more" role="tab"><span class="ic">⋯</span>More</button>
+  </nav>
+
+  <div class="toast-wrap" id="toasts"></div>
+
+  <div class="modal-bg" id="modalBg">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle">Confirm</h3>
+      <div id="modalBody"></div>
+      <input class="input" id="modalInput" style="display:none;margin-top:var(--s3)">
+      <div class="row">
+        <button class="btn ghost" id="modalCancel">Cancel</button>
+        <button class="btn primary" id="modalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * mocks.js — in-memory fakes for the Google Apps Script services the app uses.
+ *
+ * One createMocks() call returns a fresh, isolated store plus the service
+ * objects to inject into the vm sandbox. Tests seed data via the returned
+ * `store` (props, sheets, calendars, fetch handler) and assert against side
+ * effects (appended rows, sent Telegram messages, audit log).
+ */
+
+function createMocks() {
+  var store = {
+    props: {},
+    sheets: {},          // name -> rows (array of arrays; row 0 = header)
+    calendars: {},       // id -> [{id,title,start,end,allDay}]
+    fetch: null,         // function(url, opts) -> { code, body }
+    fetchLog: [],
+    telegram: [],        // sent messages
+    logs: [],
+    lockAcquired: 0
+  };
+
+  // ---- PropertiesService ----
+  var PropertiesService = {
+    getScriptProperties: function () {
+      return {
+        getProperty: function (k) { return store.props.hasOwnProperty(k) ? store.props[k] : null; },
+        setProperty: function (k, v) { store.props[k] = String(v); return this; },
+        deleteProperty: function (k) { delete store.props[k]; return this; }
+      };
+    }
+  };
+
+  // ---- SpreadsheetApp ----
+  function makeSheet(name) {
+    if (!store.sheets[name]) store.sheets[name] = [];
+    function rows() { return store.sheets[name]; }
+    function lastCol() { return rows().reduce(function (m, r) { return Math.max(m, r.length); }, 0); }
+    return {
+      getName: function () { return name; },
+      appendRow: function (arr) { rows().push(arr.slice()); return this; },
+      getLastRow: function () { return rows().length; },
+      getLastColumn: function () { return lastCol(); },
+      clearContents: function () { store.sheets[name] = []; return this; },
+      getDataRange: function () { return makeRange(name, 1, 1, Math.max(rows().length, 1), Math.max(lastCol(), 1)); },
+      getRange: function (r, c, nr, nc) { return makeRange(name, r, c, nr || 1, nc || 1); }
+    };
+  }
+  function makeRange(name, r, c, nr, nc) {
+    function rows() { return store.sheets[name]; }
+    return {
+      getValues: function () {
+        var out = [];
+        for (var i = 0; i < nr; i++) {
+          var row = rows()[r - 1 + i] || [];
+          var slice = [];
+          for (var j = 0; j < nc; j++) slice.push(row[c - 1 + j] === undefined ? '' : row[c - 1 + j]);
+          out.push(slice);
+        }
+        return out;
+      },
+      setValues: function (vals) {
+        for (var i = 0; i < vals.length; i++) {
+          var ri = r - 1 + i;
+          if (!rows()[ri]) rows()[ri] = [];
+          for (var j = 0; j < vals[i].length; j++) rows()[ri][c - 1 + j] = vals[i][j];
+        }
+        return this;
+      }
+    };
+  }
+  var SpreadsheetApp = {
+    openById: function (id) {
+      if (!id) throw new Error('bad sheet id');
+      return {
+        getSheetByName: function (n) { return store.sheets.hasOwnProperty(n) ? makeSheet(n) : null; },
+        insertSheet: function (n) { store.sheets[n] = []; return makeSheet(n); }
+      };
+    }
+  };
+
+  // ---- CalendarApp ----
+  function makeEvent(ev) {
+    return {
+      getId: function () { return ev.id; },
+      getTitle: function () { return ev.title; },
+      getStartTime: function () { return new Date(ev.start); },
+      getEndTime: function () { return new Date(ev.end); },
+      isAllDayEvent: function () { return !!ev.allDay; }
+    };
+  }
+  var CalendarApp = {
+    getCalendarById: function (id) {
+      if (!store.calendars.hasOwnProperty(id)) return null;
+      return {
+        getEvents: function (start, end) {
+          return store.calendars[id]
+            .filter(function (e) { var s = new Date(e.start).getTime(); return s >= start.getTime() && s < end.getTime(); })
+            .map(makeEvent);
+        }
+      };
+    }
+  };
+
+  // ---- UrlFetchApp ----
+  var UrlFetchApp = {
+    fetch: function (url, opts) {
+      store.fetchLog.push({ url: url, opts: opts });
+      var res = store.fetch ? store.fetch(url, opts) : { code: 200, body: '{}' };
+      if (res === undefined || res === null) res = { code: 200, body: '{}' };
+      return {
+        getResponseCode: function () { return res.code === undefined ? 200 : res.code; },
+        getContentText: function () { return res.body === undefined ? '' : res.body; }
+      };
+    }
+  };
+
+  // ---- LockService ----
+  var LockService = {
+    getScriptLock: function () {
+      return {
+        waitLock: function () { store.lockAcquired++; return true; },
+        releaseLock: function () { return true; }
+      };
+    }
+  };
+
+  // ---- CacheService (in-memory; TTL ignored — fine for deterministic tests) ----
+  store.cache = {};
+  var CacheService = {
+    getScriptCache: function () {
+      return {
+        get: function (k) { return store.cache.hasOwnProperty(k) ? store.cache[k] : null; },
+        put: function (k, v) { store.cache[k] = String(v); },
+        remove: function (k) { delete store.cache[k]; }
+      };
+    }
+  };
+
+  // ---- ScriptApp / Utilities / Logger ----
+  var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
+  var Utilities = { sleep: function () {} };
+  var Logger = { log: function (m) { store.logs.push(m); } };
+
+  // ---- HtmlService / ContentService (only used at call-time) ----
+  var HtmlService = {
+    XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' },
+    createTemplateFromFile: function () {
+      var t = { evaluate: function () { return { setTitle: function () { return this; }, addMetaTag: function () { return this; }, setXFrameOptionsMode: function () { return this; } }; } };
+      return t;
+    },
+    createHtmlOutputFromFile: function () { return { getContent: function () { return ''; } }; }
+  };
+  var ContentService = {
+    MimeType: { JSON: 'application/json' },
+    createTextOutput: function (s) { return { _s: s, setMimeType: function () { return this; }, getContent: function () { return s; } }; }
+  };
+
+  return {
+    store: store,
+    services: {
+      PropertiesService: PropertiesService,
+      SpreadsheetApp: SpreadsheetApp,
+      CalendarApp: CalendarApp,
+      UrlFetchApp: UrlFetchApp,
+      LockService: LockService,
+      CacheService: CacheService,
+      ScriptApp: ScriptApp,
+      Utilities: Utilities,
+      Logger: Logger,
+      HtmlService: HtmlService,
+      ContentService: ContentService
+    }
+  };
+}
+
+
+
+/* ---- instantiate mocks as globals (mirrors the Apps Script runtime) ---- */
+var __m = createMocks();
+var PropertiesService = __m.services.PropertiesService;
+var SpreadsheetApp   = __m.services.SpreadsheetApp;
+var CalendarApp      = __m.services.CalendarApp;
+var UrlFetchApp      = __m.services.UrlFetchApp;
+var LockService      = __m.services.LockService;
+var CacheService     = __m.services.CacheService;
+var ScriptApp        = __m.services.ScriptApp;
+var Utilities        = __m.services.Utilities;
+var Logger           = __m.services.Logger;
+
+/* ===== util.gs ===== */
+/**
+ * util.gs — shared, dependency-free helpers.
+ *
+ * Pure functions only. No Google service calls live here so the test harness
+ * can exercise this module without any mocks. Everything that needs "now" goes
+ * through nowMs()/now() so tests can pin the clock deterministically.
+ */
+
+// --- Injectable clock -------------------------------------------------------
+// Apps Script has no way to freeze time; tests set __CLOCK__ to a fixed epoch
+// (ms) so relative-time math and mock fixtures are deterministic.
+var __CLOCK__ = null;
+
+function nowMs() {
+  return __CLOCK__ === null ? Date.now() : __CLOCK__;
+}
+
+function now() {
+  return new Date(nowMs());
+}
+
+function setClockForTests(ms) {
+  __CLOCK__ = ms;
+}
+
+// --- Date helpers -----------------------------------------------------------
+var MS_DAY = 24 * 60 * 60 * 1000;
+
+function toDate(v) {
+  if (v instanceof Date) return v;
+  if (v === null || v === undefined || v === '') return null;
+  var d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isoOf(v) {
+  var d = toDate(v);
+  return d ? d.toISOString() : null;
+}
+
+function addDays(date, n) {
+  var d = toDate(date) || now();
+  return new Date(d.getTime() + n * MS_DAY);
+}
+
+function startOfDay(date) {
+  var d = toDate(date) || now();
+  var x = new Date(d.getTime());
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function daysBetween(a, b) {
+  var da = startOfDay(a), db = startOfDay(b);
+  return Math.round((db.getTime() - da.getTime()) / MS_DAY);
+}
+
+function isSameDay(a, b) {
+  return daysBetween(a, b) === 0;
+}
+
+// Human-readable relative time, e.g. "in 2h", "3 days overdue", "just now".
+function relativeTime(target, ref) {
+  var t = toDate(target);
+  if (!t) return '';
+  var base = toDate(ref) || now();
+  var diff = t.getTime() - base.getTime(); // +future / -past
+  var past = diff < 0;
+  var secs = Math.abs(diff) / 1000;
+  var label;
+  if (secs < 45) label = 'just now';
+  else if (secs < 3600) label = Math.round(secs / 60) + 'm';
+  else if (secs < 86400) label = Math.round(secs / 3600) + 'h';
+  else label = Math.round(secs / 86400) + (Math.round(secs / 86400) === 1 ? ' day' : ' days');
+  if (label === 'just now') return label;
+  return past ? label + ' ago' : 'in ' + label;
+}
+
+// "3 days overdue" framing for tasks/bills.
+function overdueLabel(due, ref) {
+  var d = toDate(due);
+  if (!d) return null;
+  var base = toDate(ref) || now();
+  if (d.getTime() >= base.getTime()) return null;
+  var days = Math.max(1, Math.round((base.getTime() - d.getTime()) / MS_DAY));
+  return days === 1 ? '1 day overdue' : days + ' days overdue';
+}
+
+// --- Money / numbers --------------------------------------------------------
+function formatMoney(value, currency) {
+  var n = Number(value) || 0;
+  var cur = currency || 'SGD';
+  var s = n.toLocaleString('en-SG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return cur + ' ' + s;
+}
+
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+// --- Ids & strings ----------------------------------------------------------
+function genId(prefix) {
+  return (prefix || 'id') + '_' + nowMs().toString(36) + '_' + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Safe wrapper: run fn, return its value, or a fallback + structured error.
+// Used by section assembly so one throwing source never blanks the page.
+function tryOr(fallback, fn) {
+  try {
+    return { ok: true, value: fn() };
+  } catch (e) {
+    return { ok: false, value: fallback, error: (e && e.message) ? e.message : String(e) };
+  }
+}
+
+// Per-execution memo. Apps Script gives each invocation a fresh global scope, so
+// this safely de-dupes expensive reads (e.g. the TickTick N+1) within a single
+// request — getTasksSection and getTimeSection both need the task list.
+var __REQUEST_MEMO__ = {};
+function memoExec(key, fn) {
+  if (__REQUEST_MEMO__.hasOwnProperty(key)) return __REQUEST_MEMO__[key];
+  var v = fn();
+  __REQUEST_MEMO__[key] = v;
+  return v;
+}
+function clearExecMemo() { __REQUEST_MEMO__ = {}; }
+
+// Guard free-text inputs so we never try to write a value larger than a Sheets
+// cell allows (~50k chars) and to blunt accidental/abusive huge payloads.
+var MAX_TEXT = 2000;
+function requireText(value, label) {
+  var s = String(value == null ? '' : value).trim();
+  if (!s) throw new Error((label || 'Value') + ' required');
+  if (s.length > MAX_TEXT) throw new Error((label || 'Value') + ' too long (max ' + MAX_TEXT + ' chars)');
+  return s;
+}
+
+/* ===== cache.gs ===== */
+/**
+ * cache.gs — short-lived caching via the built-in (free) CacheService, plus a
+ * per-execution memo. This is the main cost/quota lever: without it every page
+ * load and every post-action refresh would re-hit Calendar, TickTick (N+1
+ * fetches!) and Vertex AI. All helpers degrade gracefully (tryOr) so a cache
+ * outage never breaks a request — it just recomputes.
+ *
+ * TTLs are deliberately short; mutations call cacheBust() to stay correct.
+ */
+
+var CACHE_NS = 'ld_';
+
+function _cache() {
+  return CacheService.getScriptCache();
+}
+
+function cacheGet(key) {
+  return tryOr(null, function () {
+    var raw = _cache().get(CACHE_NS + key);
+    return raw ? JSON.parse(raw) : null;
+  }).value;
+}
+
+function cachePut(key, value, ttlSeconds) {
+  tryOr(null, function () {
+    _cache().put(CACHE_NS + key, JSON.stringify(value), ttlSeconds || 60);
+  });
+}
+
+function cacheRemove(key) {
+  tryOr(null, function () { _cache().remove(CACHE_NS + key); });
+}
+
+// Compute-through helper: serve cache, else run fn and cache the result.
+function cached(key, ttlSeconds, fn) {
+  var hit = cacheGet(key);
+  if (hit !== null && hit !== undefined) return hit;
+  var val = fn();
+  cachePut(key, val, ttlSeconds);
+  return val;
+}
+
+// Invalidate everything affected by a write. Cheap and conservative: drop the
+// assembled state and the volatile source caches so the next read is fresh.
+function cacheBust() {
+  ['dash_state', 'ticktick_tasks'].forEach(cacheRemove);
+}
+
+/* ===== config.gs ===== */
+/**
+ * config.gs — single source of truth.
+ *
+ * Holds: the canonical Sheet id, Script-Property accessors (cfgGet/cfgSet/
+ * cfgIsSet), the required-credential registry per integration, user settings
+ * with sane defaults, and the COMPLETE mock dataset (getMockState) so the app
+ * renders fully with zero credentials.
+ *
+ * Constraint: no secret ever leaves the server. cfgGet reads PropertiesService;
+ * the frontend only ever receives derived state, never raw credentials.
+ */
+
+// The one canonical datastore. Set via Script Property SHEET_ID in production.
+function getSheetId() {
+  return cfgGet('SHEET_ID') || '';
+}
+
+// --- Script Property accessors ---------------------------------------------
+function cfgGet(key) {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty(key);
+    return v === null ? '' : v;
+  } catch (e) {
+    return '';
+  }
+}
+
+function cfgSet(key, value) {
+  PropertiesService.getScriptProperties().setProperty(key, String(value));
+  return true;
+}
+
+function cfgIsSet(key) {
+  var v = cfgGet(key);
+  return v !== null && v !== undefined && String(v).trim() !== '';
+}
+
+// Are ALL the listed keys present?
+function cfgAllSet(keys) {
+  for (var i = 0; i < keys.length; i++) {
+    if (!cfgIsSet(keys[i])) return false;
+  }
+  return true;
+}
+
+// --- Required-credential registry ------------------------------------------
+// Each integration declares the Script Properties it needs to go "live".
+// diagnose() and section assembly read this so behaviour is data-driven.
+var CREDENTIAL_REGISTRY = {
+  sheet:    { label: 'Google Sheet',    keys: ['SHEET_ID'] },
+  calendar: { label: 'Google Calendar', keys: ['CALENDAR_PERSONAL_IDS'] },
+  ticktick: { label: 'TickTick',        keys: ['TICKTICK_ACCESS_TOKEN'] },
+  telegram: { label: 'Telegram bot',    keys: ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'] },
+  ibkr:     { label: 'IBKR Flex',       keys: ['IBKR_FLEX_TOKEN', 'IBKR_FLEX_QUERY_ID'] },
+  ai:       { label: 'Gemini (Vertex)', keys: ['GCP_PROJECT_ID'] }
+};
+
+function isConfigured(integration) {
+  var reg = CREDENTIAL_REGISTRY[integration];
+  if (!reg) return false;
+  return cfgAllSet(reg.keys);
+}
+
+// --- Settings (defaults; overridable via Settings screen) -------------------
+var DEFAULT_SETTINGS = {
+  timezone: 'Asia/Singapore',
+  weekStart: 'mon',          // 'mon' | 'sun'
+  timeViewDays: 7,
+  reminderScanMinutes: 1,
+  briefingTime: '07:00',
+  aiModel: 'gemini-2.0-flash',
+  currency: 'SGD',
+  srsAnnualCap: 15300,       // SGD, SRS cap for citizens/PRs
+  theme: 'system'            // 'light' | 'dark' | 'system'
+};
+
+function getSettings() {
+  var s = {};
+  Object.keys(DEFAULT_SETTINGS).forEach(function (k) {
+    var override = cfgGet('SETTING_' + k);
+    s[k] = (override === '' || override === null) ? DEFAULT_SETTINGS[k] : coerceSetting(k, override);
+  });
+  return s;
+}
+
+function setSetting(key, value) {
+  if (!DEFAULT_SETTINGS.hasOwnProperty(key)) throw new Error('Unknown setting: ' + key);
+  cfgSet('SETTING_' + key, value);
+  return getSettings();
+}
+
+function coerceSetting(key, raw) {
+  var def = DEFAULT_SETTINGS[key];
+  if (typeof def === 'number') return Number(raw);
+  return raw;
+}
+
+// --- Complete mock dataset --------------------------------------------------
+// Built relative to now() so the demo always looks current. Each section's
+// module falls back to the matching slice of this when its creds are absent.
+function getMockData() {
+  var d = function (offsetDays, h, m) {
+    var x = startOfDay(addDays(now(), offsetDays));
+    x.setHours(h || 0, m || 0, 0, 0);
+    return x.toISOString();
+  };
+
+  return {
+    tasks: [
+      { id: 'mt1', title: 'Renew passport', source: 'sheet', due: d(2, 0, 0), reminder_at: d(1, 9, 0), status: 'open', notes: 'ICA online', updated_at: d(-3, 10, 0) },
+      { id: 'mt2', title: 'Reply to landlord about lease', source: 'sheet', due: d(-1, 18, 0), reminder_at: null, status: 'open', notes: '', updated_at: d(-2, 8, 0) },
+      { id: 'mt3', title: 'Team standup', source: 'ticktick', due: d(0, 9, 30), reminder_at: d(0, 9, 15), status: 'open', notes: '', updated_at: d(0, 7, 0) },
+      { id: 'mt4', title: 'Buy running shoes', source: 'ticktick', due: null, reminder_at: null, status: 'open', notes: 'size 9', updated_at: d(-5, 12, 0) },
+      { id: 'mt5', title: 'Submit expense claim', source: 'sheet', due: d(3, 17, 0), reminder_at: null, status: 'open', notes: '', updated_at: d(-1, 9, 0) }
+    ],
+    events: [
+      { id: 'me1', title: 'Dentist', start: d(0, 14, 0), end: d(0, 15, 0), allDay: false, owned: true, calendar: 'personal' },
+      { id: 'me2', title: 'Busy', start: d(0, 10, 0), end: d(0, 11, 30), allDay: false, owned: false, calendar: 'work' },
+      { id: 'me3', title: 'Dinner with Sam', start: d(1, 19, 0), end: d(1, 21, 0), allDay: false, owned: true, calendar: 'personal' },
+      { id: 'me4', title: 'Flight to Tokyo', start: d(5, 8, 0), end: d(5, 15, 0), allDay: false, owned: true, calendar: 'personal' }
+    ],
+    holdings: [
+      { account: 'IBKR', instrument: 'VWRA', type: 'ETF', units: 120, avg_cost: 95.2, current_value: 12480, annual_dividend_est: 180, currency: 'USD', updated_at: d(0, 6, 0) },
+      { account: 'IBKR', instrument: 'D05 (DBS)', type: 'Stock', units: 400, avg_cost: 31.1, current_value: 14600, annual_dividend_est: 720, currency: 'SGD', updated_at: d(0, 6, 0) },
+      { account: 'CPF', instrument: 'CPF OA+SA+MA', type: 'Retirement', units: 1, avg_cost: 0, current_value: 142300, annual_dividend_est: 0, currency: 'SGD', updated_at: d(-10, 0, 0) },
+      { account: 'SRS', instrument: 'SRS Cash', type: 'Retirement', units: 1, avg_cost: 0, current_value: 8200, annual_dividend_est: 0, currency: 'SGD', updated_at: d(-10, 0, 0) }
+    ],
+    dividends: [
+      { instrument: 'D05 (DBS)', amount: 180, currency: 'SGD', pay_date: d(20, 0, 0) },
+      { instrument: 'VWRA', amount: 45, currency: 'USD', pay_date: d(40, 0, 0) }
+    ],
+    habits: [
+      { id: 'mh1', title: 'Exercise', cadence: 'daily', target_per_week: 5, checkins: [d(-1), d(-2), d(-4)], updated_at: d(0) },
+      { id: 'mh2', title: 'Read 20 min', cadence: 'daily', target_per_week: 7, checkins: [d(0), d(-1), d(-2), d(-3)], updated_at: d(0) },
+      { id: 'mh3', title: 'No takeout', cadence: 'daily', target_per_week: 5, checkins: [d(-2), d(-3)], updated_at: d(0) }
+    ],
+    bills: [
+      { id: 'mb1', name: 'Rent', amount: 2600, currency: 'SGD', cadence: 'monthly', next_due: d(4), category: 'Housing', updated_at: d(-30) },
+      { id: 'mb2', name: 'Spotify', amount: 16.58, currency: 'SGD', cadence: 'monthly', next_due: d(12), category: 'Media', updated_at: d(-30) },
+      { id: 'mb3', name: 'Insurance', amount: 220, currency: 'SGD', cadence: 'monthly', next_due: d(22), category: 'Insurance', updated_at: d(-30) },
+      { id: 'mb4', name: 'Domain renewal', amount: 18, currency: 'USD', cadence: 'annual', next_due: d(60), category: 'Tech', updated_at: d(-30) }
+    ],
+    goals: [
+      { id: 'mg1', title: 'Emergency fund', target: 30000, current: 19500, unit: 'SGD', due: d(120), updated_at: d(0) },
+      { id: 'mg2', title: 'Run 500km in 2026', target: 500, current: 212, unit: 'km', due: d(190), updated_at: d(0) }
+    ],
+    notes: [
+      { id: 'mn1', text: 'Idea: weekend trip to Bintan in Aug', created_at: d(-1, 21, 0) },
+      { id: 'mn2', text: 'Wine Sam liked: Cloudy Bay Sauv Blanc', created_at: d(-4, 20, 0) }
+    ],
+    countdowns: [
+      { id: 'mc1', title: "Mum's birthday", date: d(9), kind: 'birthday', source: 'sheet' },
+      { id: 'mc2', title: 'Tokyo trip', date: d(5), kind: 'trip', source: 'sheet' },
+      { id: 'mc3', title: 'Wedding anniversary', date: d(34), kind: 'anniversary', source: 'sheet' }
+    ]
+  };
+}
+
+/* ===== log.gs ===== */
+/**
+ * log.gs — append-only audit log.
+ *
+ * Every write (task edit, IBKR refresh, bot action, setting change) appends one
+ * row to the `audit` tab. Never updates or deletes existing rows. If the Sheet
+ * is unavailable, logging degrades to Logger so it never throws into a caller.
+ */
+
+var AUDIT_TAB = 'audit';
+var AUDIT_HEADERS = ['ts', 'actor', 'action', 'target', 'detail'];
+
+function auditLog(action, target, detail, actor) {
+  var row = {
+    ts: now().toISOString(),
+    actor: actor || 'dashboard',
+    action: action,
+    target: target == null ? '' : String(target),
+    detail: detail == null ? '' : (typeof detail === 'string' ? detail : JSON.stringify(detail))
+  };
+  try {
+    storeAppend(AUDIT_TAB, AUDIT_HEADERS, row);
+  } catch (e) {
+    try { Logger.log('[audit-fallback] ' + JSON.stringify(row)); } catch (e2) {}
+  }
+  // Every write funnels through here, so this is the right place to invalidate
+  // cached reads — the next getDashboardState() rebuilds fresh — and to drop the
+  // per-execution memo so a read after a write in the same call sees the change.
+  tryOr(null, cacheBust);
+  clearExecMemo();
+  return row;
+}
+
+function readAuditLog(limit) {
+  var rows = storeReadAll(AUDIT_TAB, AUDIT_HEADERS);
+  rows.sort(function (a, b) { return String(b.ts).localeCompare(String(a.ts)); });
+  return limit ? rows.slice(0, limit) : rows;
+}
+
+/* ===== store.gs ===== */
+/**
+ * store.gs — thin, header-driven wrapper over the one canonical Google Sheet.
+ *
+ * Tabs are treated as tables: row 1 is the header, every other row is a record.
+ * Reads return arrays of plain objects; writes locate rows by `id`. This is the
+ * ONLY module that touches SpreadsheetApp, so the test harness mocks a single
+ * surface and every higher module stays pure/testable.
+ *
+ * Constraints honoured here: one canonical Sheet (never duplicated), writes are
+ * guarded by LockService, soft-delete only (callers set a status flag — store
+ * never removes rows except for the explicit append-only audit pattern).
+ */
+
+function _openSheet() {
+  var id = getSheetId();
+  if (!id) throw new Error('SHEET_ID not configured');
+  return SpreadsheetApp.openById(id);
+}
+
+function _getOrCreateTab(name, headers) {
+  var ss = _openSheet();
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    if (headers && headers.length) sh.appendRow(headers);
+  }
+  return sh;
+}
+
+// Read an entire tab as array-of-objects. Unknown/missing tab → [].
+function storeReadAll(tabName, headers) {
+  var ss = _openSheet();
+  var sh = ss.getSheetByName(tabName);
+  if (!sh) return [];
+  var values = sh.getDataRange().getValues();
+  if (!values || values.length < 2) return [];
+  var head = values[0].map(function (h) { return String(h).trim(); });
+  var out = [];
+  for (var r = 1; r < values.length; r++) {
+    var obj = {};
+    for (var c = 0; c < head.length; c++) {
+      if (head[c]) obj[head[c]] = values[r][c];
+    }
+    obj.__row = r + 1; // 1-based sheet row, for updates
+    out.push(obj);
+  }
+  return out;
+}
+
+// Append a record (object keyed by header name). Returns the appended object.
+function storeAppend(tabName, headers, record) {
+  return withLock(function () {
+    var sh = _getOrCreateTab(tabName, headers);
+    var existingHead = sh.getLastRow() > 0
+      ? sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0]
+      : [];
+    var head = (existingHead && existingHead.join('') !== '') ? existingHead : headers;
+    var row = head.map(function (h) { return record[h] === undefined ? '' : record[h]; });
+    sh.appendRow(row);
+    return record;
+  });
+}
+
+// Update the first row whose `id` matches, applying `patch`. Returns updated
+// object or null if not found. Never inserts.
+function storeUpdateById(tabName, headers, id, patch) {
+  return withLock(function () {
+    var ss = _openSheet();
+    var sh = ss.getSheetByName(tabName);
+    if (!sh) return null;
+    var values = sh.getDataRange().getValues();
+    var head = values[0].map(function (h) { return String(h).trim(); });
+    var idCol = head.indexOf('id');
+    if (idCol < 0) return null;
+    for (var r = 1; r < values.length; r++) {
+      if (String(values[r][idCol]) === String(id)) {
+        var merged = {};
+        for (var c = 0; c < head.length; c++) merged[head[c]] = values[r][c];
+        Object.keys(patch).forEach(function (k) { merged[k] = patch[k]; });
+        var rowVals = head.map(function (h) { return merged[h] === undefined ? '' : merged[h]; });
+        sh.getRange(r + 1, 1, 1, head.length).setValues([rowVals]);
+        merged.__row = r + 1;
+        return merged;
+      }
+    }
+    return null;
+  });
+}
+
+// Replace every row whose `account` column equals `account` with `records`,
+// leaving all other rows (e.g. manual CPF/SRS) untouched. Used by IBKR refresh.
+function storeReplaceWhere(tabName, headers, matchCol, matchVal, records) {
+  return withLock(function () {
+    var sh = _getOrCreateTab(tabName, headers);
+    var values = sh.getDataRange().getValues();
+    var head = (values.length ? values[0].map(function (h) { return String(h).trim(); }) : headers);
+    var matchIdx = head.indexOf(matchCol);
+    var kept = [];
+    for (var r = 1; r < values.length; r++) {
+      if (matchIdx < 0 || String(values[r][matchIdx]) !== String(matchVal)) {
+        kept.push(values[r]);
+      }
+    }
+    var newRows = records.map(function (rec) {
+      return head.map(function (h) { return rec[h] === undefined ? '' : rec[h]; });
+    });
+    // Rewrite the whole data area: header + kept + new.
+    sh.clearContents();
+    var all = [head].concat(kept).concat(newRows);
+    sh.getRange(1, 1, all.length, head.length).setValues(all);
+    return records.length;
+  });
+}
+
+// LockService guard. Falls back to a plain call when LockService is absent
+// (the mock provides one; this keeps store usable in degraded environments).
+function withLock(fn) {
+  var lock = null;
+  try {
+    lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+  } catch (e) {
+    lock = null;
+  }
+  try {
+    return fn();
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (e2) {} }
+  }
+}
+
+/* ===== tasks.gs ===== */
+/**
+ * tasks.gs — task capture + triage across the Sheet and TickTick.
+ *
+ * Sources:
+ *   - sheet:    the `tasks` tab (manual/local). Soft-delete only (status flag).
+ *   - ticktick: TickTick Open API (returns UNDONE tasks only). Because TickTick
+ *               drops completed tasks from its feed, we keep a local
+ *               `task_overrides` tab so "complete then delete" never errors.
+ *
+ * Every write is audited and guarded by the store's LockService. Reads fall
+ * back to the mock dataset only when NO task source is configured.
+ */
+
+var TASKS_TAB = 'tasks';
+var TASK_HEADERS = ['id', 'title', 'source', 'due', 'reminder_at', 'status', 'notes', 'updated_at'];
+var OVERRIDES_TAB = 'task_overrides';
+var OVERRIDE_HEADERS = ['id', 'status', 'updated_at'];
+
+function _normalizeTask(t) {
+  return {
+    id: String(t.id),
+    title: String(t.title || ''),
+    source: t.source === 'ticktick' ? 'ticktick' : 'sheet',
+    due: isoOf(t.due),
+    reminder_at: isoOf(t.reminder_at),
+    status: t.status || 'open',
+    notes: t.notes ? String(t.notes) : '',
+    updated_at: isoOf(t.updated_at) || now().toISOString()
+  };
+}
+
+// Live + mock-aware read of all tasks (any status). Used by the section build.
+// The expensive part — TickTick's N+1 fetches — is memoised inside
+// tickTickListTasks(), so this re-applies cheap Sheet reads + local overrides
+// fresh on every call (correct even after a write within one execution).
+function _readAllTasks() {
+  var hasSheet = isConfigured('sheet');
+  var hasTT = isConfigured('ticktick');
+
+  if (!hasSheet && !hasTT) {
+    return { live: false, items: getMockData().tasks.map(_normalizeTask) };
+  }
+
+  var items = [];
+  if (hasSheet) {
+    storeReadAll(TASKS_TAB, TASK_HEADERS).forEach(function (r) { items.push(_normalizeTask(r)); });
+  }
+  if (hasTT) {
+    var overrides = {};
+    if (hasSheet) {
+      storeReadAll(OVERRIDES_TAB, OVERRIDE_HEADERS).forEach(function (o) { overrides[String(o.id)] = o.status; });
+    }
+    tickTickListTasks().forEach(function (t) {
+      var nt = _normalizeTask({ id: t.id, title: t.title, source: 'ticktick', due: t.dueDate, status: 'open', notes: t.content });
+      if (overrides[nt.id]) nt.status = overrides[nt.id];
+      items.push(nt);
+    });
+  }
+  return { live: true, items: items };
+}
+
+// Section payload for the dashboard: open tasks (excludes done/deleted),
+// sorted by due then update time.
+function getTasksSection() {
+  var all = _readAllTasks();
+  var open = all.items.filter(function (t) { return t.status === 'open'; });
+  open.sort(function (a, b) {
+    if (a.due && b.due) return a.due.localeCompare(b.due);
+    if (a.due) return -1;
+    if (b.due) return 1;
+    return String(b.updated_at).localeCompare(String(a.updated_at));
+  });
+  var withMeta = open.map(function (t) {
+    return Object.assign({}, t, { overdue: !!overdueLabel(t.due), overdueLabel: overdueLabel(t.due) });
+  });
+  return { live: all.live, data: { items: withMeta } };
+}
+
+// --- Writes -----------------------------------------------------------------
+function _requireWritable() {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured — add SHEET_ID to enable editing.');
+}
+
+function addTask(title, opts) {
+  _requireWritable();
+  opts = opts || {};
+  var cleanTitle = requireText(title, 'Task title');
+  var task = _normalizeTask({
+    id: genId('t'),
+    title: cleanTitle,
+    source: 'sheet',
+    due: opts.due || null,
+    reminder_at: opts.reminder_at || null,
+    status: 'open',
+    notes: opts.notes || '',
+    updated_at: now().toISOString()
+  });
+  storeAppend(TASKS_TAB, TASK_HEADERS, task);
+  auditLog('task.add', task.id, { title: task.title, due: task.due }, opts.actor);
+  return { ok: true, status: 'open', task: task };
+}
+
+function completeTask(id, source) {
+  return _setTaskStatus(id, source, 'done', 'task.complete');
+}
+
+function reopenTask(id, source) {
+  return _setTaskStatus(id, source, 'open', 'task.reopen');
+}
+
+function softDeleteTask(id, source) {
+  return _setTaskStatus(id, source, 'deleted', 'task.delete');
+}
+
+// Unified status mutation. For TickTick we record a local override and make a
+// BEST-EFFORT API call — a completed task that TickTick no longer lists must
+// still "delete" cleanly (returns status, never throws). Soft-delete only.
+function _setTaskStatus(id, source, status, action) {
+  _requireWritable();
+  if (!id) throw new Error('Task id required');
+  source = source === 'ticktick' ? 'ticktick' : 'sheet';
+
+  if (source === 'sheet') {
+    var updated = storeUpdateById(TASKS_TAB, TASK_HEADERS, id, { status: status, updated_at: now().toISOString() });
+    if (!updated) throw new Error('Task not found: ' + id);
+    auditLog(action, id, { source: source, status: status });
+    return { ok: true, status: status, id: id };
+  }
+
+  // TickTick: best-effort remote change, authoritative local override.
+  tryOr(null, function () {
+    if (status === 'done') return tickTickComplete(id);
+    if (status === 'deleted') return tickTickDelete(id);
+    return tickTickReopen(id);
+  });
+  storeAppend(OVERRIDES_TAB, OVERRIDE_HEADERS, { id: id, status: status, updated_at: now().toISOString() });
+  auditLog(action, id, { source: 'ticktick', status: status });
+  return { ok: true, status: status, id: id };
+}
+
+// Convenience for the bot / quick capture: returns open tasks only.
+function listOpenTasks() {
+  return getTasksSection().data.items;
+}
+
+/* ===== ticktick.gs ===== */
+/**
+ * ticktick.gs — TickTick Open API client.
+ *
+ * OAuth access token lives in Script Property TICKTICK_ACCESS_TOKEN (never the
+ * frontend). The Open API only returns UNDONE tasks; completed ones vanish from
+ * the feed, which is why tasks.gs keeps local overrides. All calls go through
+ * _ttFetch so the test harness mocks one UrlFetchApp surface.
+ */
+
+var TICKTICK_BASE = 'https://api.ticktick.com/open/v1';
+
+function _ttToken() {
+  var t = cfgGet('TICKTICK_ACCESS_TOKEN');
+  if (!t) throw new Error('TICKTICK_ACCESS_TOKEN not configured');
+  return t;
+}
+
+function _ttFetch(method, path, payload) {
+  var opts = {
+    method: method,
+    headers: { Authorization: 'Bearer ' + _ttToken() },
+    contentType: 'application/json',
+    muteHttpExceptions: true
+  };
+  if (payload) opts.payload = JSON.stringify(payload);
+  // Retry only idempotent GETs on transient 5xx — never retry writes.
+  var attempts = method === 'get' ? 2 : 1;
+  var resp, code;
+  for (var i = 0; i < attempts; i++) {
+    resp = UrlFetchApp.fetch(TICKTICK_BASE + path, opts);
+    code = resp.getResponseCode();
+    if (code < 500) break;
+    if (i < attempts - 1) Utilities.sleep(300 * (i + 1));
+  }
+  if (code >= 400) throw new Error('TickTick API ' + code + ': ' + resp.getContentText());
+  var body = resp.getContentText();
+  return body ? JSON.parse(body) : {};
+}
+
+// Returns undone tasks across the user's projects, flattened to a simple shape.
+// Memoised per execution so a complete/delete (which looks tasks up) plus the
+// section read don't each pay the N+1 round-trips.
+function tickTickListTasks() {
+  return memoExec('ticktick_list', _tickTickListTasksUncached);
+}
+function _tickTickListTasksUncached() {
+  var projects = _ttFetch('get', '/project') || [];
+  var tasks = [];
+  projects.forEach(function (p) {
+    var data = _ttFetch('get', '/project/' + p.id + '/data') || {};
+    (data.tasks || []).forEach(function (t) {
+      tasks.push({ id: t.id, projectId: p.id, title: t.title, dueDate: t.dueDate || null, content: t.content || '' });
+    });
+  });
+  return tasks;
+}
+
+function tickTickComplete(id) {
+  // TickTick completes via the project/task pair; we look up the project lazily.
+  var task = _ttFindTask(id);
+  if (!task) return { ok: true, note: 'already gone' };
+  return _ttFetch('post', '/project/' + task.projectId + '/task/' + id + '/complete');
+}
+
+function tickTickDelete(id) {
+  var task = _ttFindTask(id);
+  if (!task) return { ok: true, note: 'already gone' };
+  return _ttFetch('delete', '/project/' + task.projectId + '/task/' + id);
+}
+
+function tickTickReopen(id) {
+  // Open API has no reopen; surfaced as a no-op so callers don't break.
+  return { ok: true, note: 'reopen unsupported by TickTick Open API' };
+}
+
+function _ttFindTask(id) {
+  var all = tryOr([], tickTickListTasks).value;
+  for (var i = 0; i < all.length; i++) if (String(all[i].id) === String(id)) return all[i];
+  return null;
+}
+
+// Live connectivity check for diagnose().
+function tickTickTestCall() {
+  var projects = _ttFetch('get', '/project') || [];
+  return { ok: true, projects: projects.length };
+}
+
+/* ===== calendar.gs ===== */
+/**
+ * calendar.gs — Google Calendar reads + timeline merge.
+ *
+ * Personal/owned calendars (CALENDAR_PERSONAL_IDS, comma-separated) are read in
+ * full. A work/gov calendar (CALENDAR_BUSY_IDS) is read as FREE/BUSY ONLY and
+ * rendered as title-less "Busy" blocks — we never read its event titles,
+ * attendees, or details. This is a hard privacy constraint (§2).
+ *
+ * The Time tab shows a merged, time-sorted timeline of events + timed tasks,
+ * plus a follow-ups list of untimed tasks.
+ */
+
+function _personalCalIds() {
+  return cfgGet('CALENDAR_PERSONAL_IDS').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+}
+function _busyCalIds() {
+  return cfgGet('CALENDAR_BUSY_IDS').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+}
+
+// Reads calendar events within the look-ahead window.
+function _readCalendarEvents(days) {
+  var start = startOfDay(now());
+  var end = addDays(start, days);
+  var events = [];
+
+  _personalCalIds().forEach(function (calId) {
+    var cal = CalendarApp.getCalendarById(calId);
+    if (!cal) return;
+    cal.getEvents(start, end).forEach(function (ev) {
+      events.push({
+        id: ev.getId(),
+        title: ev.getTitle(),
+        start: ev.getStartTime().toISOString(),
+        end: ev.getEndTime().toISOString(),
+        allDay: ev.isAllDayEvent(),
+        owned: true,
+        calendar: 'personal'
+      });
+    });
+  });
+
+  // Free/busy ONLY for work/gov calendars. We deliberately discard ev.getTitle().
+  _busyCalIds().forEach(function (calId) {
+    var cal = CalendarApp.getCalendarById(calId);
+    if (!cal) return;
+    cal.getEvents(start, end).forEach(function (ev) {
+      if (ev.isAllDayEvent()) return; // ignore all-day OOO markers
+      events.push({
+        id: 'busy_' + ev.getStartTime().getTime(),
+        title: 'Busy',            // hard-coded; never the real title
+        start: ev.getStartTime().toISOString(),
+        end: ev.getEndTime().toISOString(),
+        allDay: false,
+        owned: false,
+        calendar: 'work'
+      });
+    });
+  });
+
+  return events;
+}
+
+// Builds the Time tab: timeline (events + timed tasks) + follow-ups (untimed).
+function getTimeSection() {
+  var days = getSettings().timeViewDays;
+  var hasCal = isConfigured('calendar');
+  var taskRead = _readAllTasks();
+
+  var events;
+  if (hasCal) {
+    events = _readCalendarEvents(days);
+  } else if (!taskRead.live) {
+    events = getMockData().events.slice();
+  } else {
+    events = []; // tasks live but no calendar configured → empty calendar, stay live
+  }
+
+  var live = hasCal || taskRead.live;
+  var openTasks = taskRead.items.filter(function (t) { return t.status === 'open'; });
+  var windowEnd = addDays(startOfDay(now()), days).getTime();
+
+  var timeline = [];
+  events.forEach(function (ev) {
+    timeline.push({ kind: 'event', source: 'calendar', title: ev.title, start: ev.start, end: ev.end, allDay: !!ev.allDay, owned: ev.owned });
+  });
+
+  var followUps = [];
+  openTasks.forEach(function (t) {
+    if (t.due) {
+      var dueMs = toDate(t.due).getTime();
+      var overdue = !!overdueLabel(t.due);
+      if (overdue || dueMs <= windowEnd) {
+        timeline.push({ kind: 'task', source: t.source, title: t.title, start: t.due, end: null, overdue: overdue, overdueLabel: overdueLabel(t.due), id: t.id });
+      }
+    } else {
+      followUps.push({ id: t.id, title: t.title, source: t.source, updated_at: t.updated_at });
+    }
+  });
+
+  timeline.sort(function (a, b) { return String(a.start).localeCompare(String(b.start)); });
+  followUps.sort(function (a, b) { return String(a.updated_at).localeCompare(String(b.updated_at)); });
+
+  return { live: live, data: { timeline: timeline, followUps: followUps } };
+}
+
+function calendarTestCall() {
+  var ids = _personalCalIds();
+  if (!ids.length) throw new Error('No CALENDAR_PERSONAL_IDS configured');
+  var cal = CalendarApp.getCalendarById(ids[0]);
+  if (!cal) throw new Error('Calendar not accessible: ' + ids[0]);
+  return { ok: true, calendar: ids[0] };
+}
+
+/* ===== ibkr.gs ===== */
+/**
+ * ibkr.gs — Interactive Brokers Flex Web Service auto-pull (READ-ONLY).
+ *
+ * Two-step protocol: SendRequest -> ReferenceCode, then GetStatement (which may
+ * report "in progress" and must be polled). We parse OpenPosition rows and
+ * REPLACE ONLY the IBKR account rows in the `holdings` tab, leaving manual rows
+ * (CPF, SRS, etc.) untouched. Every refresh is audited. Overlapping refreshes
+ * are rejected with a friendly message — never a double-run.
+ *
+ * Constraint: finance integrations never execute trades or move money.
+ */
+
+var FLEX_SEND = 'https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest';
+var FLEX_GET = 'https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement';
+var IBKR_LOCK_KEY = 'IBKR_REFRESH_INPROGRESS';
+var HOLDINGS_TAB = 'holdings';
+var HOLDING_HEADERS = ['account', 'instrument', 'type', 'units', 'avg_cost', 'current_value', 'annual_dividend_est', 'currency', 'updated_at'];
+
+function _xmlAttr(tag, name) {
+  var m = tag.match(new RegExp(name + '="([^"]*)"'));
+  return m ? m[1] : '';
+}
+
+function _parseFlexPositions(xml) {
+  var status = (xml.match(/Status="?([A-Za-z ]+)"?/) || [])[1] || '';
+  var positions = [];
+  var re = /<OpenPosition\b[^>]*\/?>/g, m;
+  while ((m = re.exec(xml)) !== null) {
+    var tag = m[0];
+    positions.push({
+      account: 'IBKR',
+      instrument: _xmlAttr(tag, 'symbol'),
+      type: _mapAssetCategory(_xmlAttr(tag, 'assetCategory')),
+      units: Number(_xmlAttr(tag, 'position')) || 0,
+      avg_cost: round2(_xmlAttr(tag, 'costBasisPrice')),
+      current_value: round2(_xmlAttr(tag, 'positionValue')),
+      annual_dividend_est: 0,
+      currency: _xmlAttr(tag, 'currency') || 'USD',
+      updated_at: now().toISOString()
+    });
+  }
+  return { status: status, positions: positions };
+}
+
+function _mapAssetCategory(c) {
+  if (c === 'STK') return 'Stock';
+  if (c === 'ETF') return 'ETF';
+  if (c === 'BOND') return 'Bond';
+  return c || 'Other';
+}
+
+function _flexFetch(url) {
+  var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  return resp.getContentText();
+}
+
+// Public: pull positions and replace only IBKR rows. Returns a result summary.
+function refreshIbkr() {
+  if (!isConfigured('ibkr')) {
+    return { ok: false, message: 'IBKR not connected. Add IBKR_FLEX_TOKEN and IBKR_FLEX_QUERY_ID in Settings.' };
+  }
+  // Store a start timestamp, not a bare flag: a refresh killed by the 6-min
+  // execution limit would otherwise leave a "1" that blocks every future run.
+  var startedAt = Number(cfgGet(IBKR_LOCK_KEY)) || 0;
+  if (startedAt && (nowMs() - startedAt) < 5 * 60 * 1000) {
+    return { ok: false, busy: true, message: 'An IBKR refresh is already running — please wait a moment.' };
+  }
+
+  cfgSet(IBKR_LOCK_KEY, String(nowMs()));
+  try {
+    var token = cfgGet('IBKR_FLEX_TOKEN');
+    var query = cfgGet('IBKR_FLEX_QUERY_ID');
+
+    var sendXml = _flexFetch(FLEX_SEND + '?t=' + encodeURIComponent(token) + '&q=' + encodeURIComponent(query) + '&v=3');
+    var refCode = (sendXml.match(/<ReferenceCode>([^<]+)<\/ReferenceCode>/) || [])[1];
+    var baseUrl = (sendXml.match(/<Url>([^<]+)<\/Url>/) || [])[1] || FLEX_GET;
+    if (!refCode) {
+      var err = (sendXml.match(/<ErrorMessage>([^<]+)<\/ErrorMessage>/) || [])[1] || 'unknown error';
+      throw new Error('Flex SendRequest failed: ' + err);
+    }
+
+    // Poll GetStatement until it stops saying "in progress" (bounded).
+    var parsed = null;
+    for (var attempt = 0; attempt < 5; attempt++) {
+      var stmtXml = _flexFetch(baseUrl + '?t=' + encodeURIComponent(token) + '&q=' + encodeURIComponent(refCode) + '&v=3');
+      var p = _parseFlexPositions(stmtXml);
+      if (/in progress/i.test(stmtXml) || /Warn/.test(p.status)) {
+        Utilities.sleep(1000);
+        continue;
+      }
+      parsed = p;
+      break;
+    }
+    if (!parsed) return { ok: false, message: 'IBKR statement still generating — try again shortly.' };
+
+    var count = storeReplaceWhere(HOLDINGS_TAB, HOLDING_HEADERS, 'account', 'IBKR', parsed.positions);
+    auditLog('ibkr.refresh', 'IBKR', { positions: parsed.positions.length });
+    return { ok: true, replaced: count, positions: parsed.positions.length };
+  } catch (e) {
+    return { ok: false, message: 'IBKR refresh failed: ' + (e.message || e) };
+  } finally {
+    cfgSet(IBKR_LOCK_KEY, '0');
+  }
+}
+
+function ibkrTestCall() {
+  if (!isConfigured('ibkr')) throw new Error('IBKR not configured');
+  var token = cfgGet('IBKR_FLEX_TOKEN'), query = cfgGet('IBKR_FLEX_QUERY_ID');
+  var xml = _flexFetch(FLEX_SEND + '?t=' + encodeURIComponent(token) + '&q=' + encodeURIComponent(query) + '&v=3');
+  if (!/<ReferenceCode>/.test(xml)) throw new Error('Flex did not return a reference code');
+  return { ok: true };
+}
+
+/* ===== finances.gs ===== */
+/**
+ * finances.gs — net-worth / portfolio snapshot (READ-ONLY) for a SG user.
+ *
+ * Reads the `holdings` and `dividends` tabs (manual rows like CPF/SRS survive
+ * refreshes; IBKR rows are refreshed by ibkr.gs). Computes summary cards:
+ * total portfolio value, est. annual dividends, SRS balance + remaining top-up
+ * room (cap − balance), and CPF total. Falls back to mock only when the Sheet
+ * is not configured.
+ */
+
+var DIVIDENDS_TAB = 'dividends';
+var DIVIDEND_HEADERS = ['instrument', 'amount', 'currency', 'pay_date'];
+
+// Naive FX to SGD for headline totals. Real FX would come from a feed; this
+// keeps the demo coherent without adding another live dependency.
+var FX_TO_SGD = { SGD: 1, USD: 1.35, EUR: 1.45, GBP: 1.70 };
+function _toSgd(amount, currency) {
+  var rate = FX_TO_SGD[currency] || 1;
+  return (Number(amount) || 0) * rate;
+}
+
+function _readHoldings() {
+  if (!isConfigured('sheet')) return { live: false, holdings: getMockData().holdings.slice() };
+  return { live: true, holdings: storeReadAll(HOLDINGS_TAB, HOLDING_HEADERS) };
+}
+
+function _readDividends() {
+  if (!isConfigured('sheet')) return getMockData().dividends.slice();
+  return storeReadAll(DIVIDENDS_TAB, DIVIDEND_HEADERS);
+}
+
+function getFinancesSection() {
+  var h = _readHoldings();
+  var holdings = h.holdings;
+  var settings = getSettings();
+  var asOf = now().toISOString();
+
+  var totalSgd = 0, dividendsSgd = 0, srsBalance = 0, cpfTotal = 0;
+  holdings.forEach(function (row) {
+    totalSgd += _toSgd(row.current_value, row.currency);
+    dividendsSgd += _toSgd(row.annual_dividend_est, row.currency);
+    if (String(row.account).toUpperCase() === 'SRS') srsBalance += Number(row.current_value) || 0;
+    if (String(row.account).toUpperCase() === 'CPF') cpfTotal += Number(row.current_value) || 0;
+  });
+
+  var cap = settings.srsAnnualCap;
+  var summary = {
+    total_portfolio_value: { value: round2(totalSgd), as_of: asOf, currency: 'SGD' },
+    annual_dividends_est: { value: round2(dividendsSgd), as_of: asOf, currency: 'SGD' },
+    srs_balance: { value: round2(srsBalance), as_of: asOf, currency: 'SGD' },
+    srs_topup_remaining: { value: round2(Math.max(0, cap - srsBalance)), cap: cap, as_of: asOf, currency: 'SGD' },
+    cpf_total: { value: round2(cpfTotal), as_of: asOf, currency: 'SGD' }
+  };
+
+  return { live: h.live, data: { summary: summary, holdings: holdings, dividends: _readDividends() } };
+}
+
+/* ===== habits.gs ===== */
+/**
+ * habits.gs — daily/weekly habits with check-offs, streaks, and rings.
+ *
+ * Data in the `habits` tab. A check-in is a date (ISO) the habit was done. We
+ * compute a current streak (consecutive days back from today/yesterday) and a
+ * weekly ring (check-ins this week vs target_per_week). Falls back to mock when
+ * the Sheet is unconfigured.
+ */
+
+var HABITS_TAB = 'habits';
+var HABIT_HEADERS = ['id', 'title', 'cadence', 'target_per_week', 'checkins', 'updated_at'];
+
+function _parseCheckins(v) {
+  if (Array.isArray(v)) return v.map(function (x) { return isoOf(x); }).filter(Boolean);
+  if (!v) return [];
+  return String(v).split(',').map(function (s) { return isoOf(s.trim()); }).filter(Boolean);
+}
+
+function _currentStreak(checkins, ref) {
+  var days = {};
+  checkins.forEach(function (c) { days[startOfDay(c).getTime()] = true; });
+  var streak = 0;
+  // Allow the streak to "hold" if today isn't done yet but yesterday was.
+  var cursor = startOfDay(ref || now());
+  if (!days[cursor.getTime()]) cursor = addDays(cursor, -1);
+  while (days[startOfDay(cursor).getTime()]) {
+    streak++;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
+function _checkinsThisWeek(checkins, ref) {
+  var weekStart = startOfDay(addDays(now(), -((now().getDay() + 6) % 7))); // Monday-based
+  if (ref) weekStart = startOfDay(addDays(toDate(ref), -((toDate(ref).getDay() + 6) % 7)));
+  var weekEnd = addDays(weekStart, 7);
+  return checkins.filter(function (c) {
+    var t = toDate(c).getTime();
+    return t >= weekStart.getTime() && t < weekEnd.getTime();
+  }).length;
+}
+
+function _decorateHabit(h) {
+  var checkins = _parseCheckins(h.checkins);
+  var target = Number(h.target_per_week) || 7;
+  var weekCount = _checkinsThisWeek(checkins);
+  return {
+    id: String(h.id),
+    title: h.title,
+    cadence: h.cadence || 'daily',
+    target_per_week: target,
+    streak: _currentStreak(checkins),
+    week_count: weekCount,
+    ring: Math.min(1, target ? weekCount / target : 0),
+    done_today: checkins.some(function (c) { return isSameDay(c, now()); }),
+    checkins: checkins
+  };
+}
+
+function getHabitsSection() {
+  if (!isConfigured('sheet')) {
+    return { live: false, data: { items: getMockData().habits.map(_decorateHabit) } };
+  }
+  var rows = storeReadAll(HABITS_TAB, HABIT_HEADERS);
+  return { live: true, data: { items: rows.map(_decorateHabit) } };
+}
+
+// Toggle today's check-in for a habit. Idempotent per day.
+function checkInHabit(id, dateIso) {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured');
+  var rows = storeReadAll(HABITS_TAB, HABIT_HEADERS);
+  var row = null;
+  for (var i = 0; i < rows.length; i++) if (String(rows[i].id) === String(id)) row = rows[i];
+  if (!row) throw new Error('Habit not found: ' + id);
+
+  var checkins = _parseCheckins(row.checkins);
+  var when = startOfDay(dateIso || now()).toISOString();
+  var already = checkins.some(function (c) { return isSameDay(c, when); });
+  if (already) {
+    checkins = checkins.filter(function (c) { return !isSameDay(c, when); });
+  } else {
+    checkins.push(when);
+  }
+  var updated = storeUpdateById(HABITS_TAB, HABIT_HEADERS, id, {
+    checkins: checkins.join(','), updated_at: now().toISOString()
+  });
+  auditLog('habit.checkin', id, { added: !already, date: when });
+  return { ok: true, done_today: !already, habit: _decorateHabit(updated) };
+}
+
+function addHabit(title, opts) {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured');
+  opts = opts || {};
+  var h = { id: genId('h'), title: String(title).trim(), cadence: opts.cadence || 'daily', target_per_week: opts.target_per_week || 7, checkins: '', updated_at: now().toISOString() };
+  storeAppend(HABITS_TAB, HABIT_HEADERS, h);
+  auditLog('habit.add', h.id, { title: h.title });
+  return { ok: true, habit: _decorateHabit(h) };
+}
+
+/* ===== bills.gs ===== */
+/**
+ * bills.gs — recurring bills & subscriptions.
+ *
+ * Data in the `bills` tab. Each bill has a cadence (weekly/monthly/annual) and a
+ * `next_due` date; we roll that forward past today to compute the true next due,
+ * then surface upcoming bills and monthly/annual totals (annual amortised /12).
+ */
+
+var BILLS_TAB = 'bills';
+var BILL_HEADERS = ['id', 'name', 'amount', 'currency', 'cadence', 'next_due', 'category', 'updated_at'];
+
+function _rollForward(date, cadence, ref) {
+  var d = toDate(date);
+  var base = startOfDay(ref || now());
+  if (!d) return null;
+  var guard = 0;
+  while (startOfDay(d).getTime() < base.getTime() && guard < 600) {
+    if (cadence === 'weekly') d = addDays(d, 7);
+    else if (cadence === 'annual') d = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
+    else d = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate()); // monthly default
+    guard++;
+  }
+  return d;
+}
+
+function _decorateBill(b) {
+  var next = _rollForward(b.next_due, b.cadence);
+  return {
+    id: String(b.id),
+    name: b.name,
+    amount: Number(b.amount) || 0,
+    currency: b.currency || 'SGD',
+    cadence: b.cadence || 'monthly',
+    category: b.category || '',
+    next_due: next ? next.toISOString() : null,
+    days_until: next ? daysBetween(now(), next) : null,
+    relative: next ? relativeTime(next) : ''
+  };
+}
+
+function getBillsSection() {
+  var rows = isConfigured('sheet') ? storeReadAll(BILLS_TAB, BILL_HEADERS) : getMockData().bills;
+  var live = isConfigured('sheet');
+  var items = rows.map(_decorateBill).sort(function (a, b) {
+    return String(a.next_due).localeCompare(String(b.next_due));
+  });
+
+  var monthlyTotal = 0, annualTotal = 0;
+  items.forEach(function (b) {
+    var amt = b.amount;
+    if (b.cadence === 'monthly') { monthlyTotal += amt; annualTotal += amt * 12; }
+    else if (b.cadence === 'weekly') { monthlyTotal += amt * 4.345; annualTotal += amt * 52; }
+    else if (b.cadence === 'annual') { monthlyTotal += amt / 12; annualTotal += amt; }
+  });
+
+  return {
+    live: live,
+    data: {
+      items: items,
+      monthly_total: round2(monthlyTotal),
+      annual_total: round2(annualTotal),
+      next_bill: items[0] || null
+    }
+  };
+}
+
+function addBill(name, amount, opts) {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured');
+  opts = opts || {};
+  var b = {
+    id: genId('b'), name: String(name).trim(), amount: Number(amount) || 0,
+    currency: opts.currency || 'SGD', cadence: opts.cadence || 'monthly',
+    next_due: opts.next_due || addDays(now(), 30).toISOString(), category: opts.category || '',
+    updated_at: now().toISOString()
+  };
+  storeAppend(BILLS_TAB, BILL_HEADERS, b);
+  auditLog('bill.add', b.id, { name: b.name, amount: b.amount });
+  return { ok: true, bill: _decorateBill(b) };
+}
+
+/* ===== goals.gs ===== */
+/**
+ * goals.gs — tracked goals / OKRs with progress bars and target dates.
+ * Data in the `goals` tab. Progress = current / target, clamped 0..1.
+ */
+
+var GOALS_TAB = 'goals';
+var GOAL_HEADERS = ['id', 'title', 'target', 'current', 'unit', 'due', 'updated_at'];
+
+function _decorateGoal(g) {
+  var target = Number(g.target) || 0;
+  var current = Number(g.current) || 0;
+  return {
+    id: String(g.id),
+    title: g.title,
+    target: target,
+    current: current,
+    unit: g.unit || '',
+    due: isoOf(g.due),
+    progress: target > 0 ? Math.max(0, Math.min(1, current / target)) : 0,
+    days_until: g.due ? daysBetween(now(), g.due) : null
+  };
+}
+
+function getGoalsSection() {
+  var rows = isConfigured('sheet') ? storeReadAll(GOALS_TAB, GOAL_HEADERS) : getMockData().goals;
+  return { live: isConfigured('sheet'), data: { items: rows.map(_decorateGoal) } };
+}
+
+function updateGoalProgress(id, current) {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured');
+  var updated = storeUpdateById(GOALS_TAB, GOAL_HEADERS, id, { current: Number(current) || 0, updated_at: now().toISOString() });
+  if (!updated) throw new Error('Goal not found: ' + id);
+  auditLog('goal.update', id, { current: current });
+  return { ok: true, goal: _decorateGoal(updated) };
+}
+
+/* ===== notes.gs ===== */
+/**
+ * notes.gs — lightweight notes / journal / quick inbox with date stamps.
+ * Data in the `notes` tab. Newest first.
+ */
+
+var NOTES_TAB = 'notes';
+var NOTE_HEADERS = ['id', 'text', 'created_at'];
+
+function getNotesSection() {
+  var rows = isConfigured('sheet') ? storeReadAll(NOTES_TAB, NOTE_HEADERS) : getMockData().notes;
+  var items = rows.map(function (n) {
+    return { id: String(n.id), text: n.text, created_at: isoOf(n.created_at), relative: relativeTime(n.created_at) };
+  }).sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+  return { live: isConfigured('sheet'), data: { items: items } };
+}
+
+function addNote(text) {
+  if (!isConfigured('sheet')) throw new Error('Sheet not configured');
+  var n = { id: genId('n'), text: requireText(text, 'Note text'), created_at: now().toISOString() };
+  storeAppend(NOTES_TAB, NOTE_HEADERS, n);
+  auditLog('note.add', n.id, {});
+  return { ok: true, note: n };
+}
+
+/* ===== countdowns.gs ===== */
+/**
+ * countdowns.gs — key dates with "days until".
+ *
+ * Sources: the `countdowns` tab (manual) plus birthdays from a Google
+ * "Birthdays" calendar (CALENDAR_BIRTHDAYS_ID) on a 30-day look-ahead. Birthday
+ * titles from a personal birthdays calendar are fine to read (not work/gov).
+ */
+
+var COUNTDOWNS_TAB = 'countdowns';
+var COUNTDOWN_HEADERS = ['id', 'title', 'date', 'kind', 'source'];
+
+function _decorateCountdown(c) {
+  var date = isoOf(c.date);
+  return {
+    id: String(c.id),
+    title: c.title,
+    date: date,
+    kind: c.kind || 'date',
+    source: c.source || 'sheet',
+    days_until: date ? daysBetween(now(), date) : null,
+    relative: date ? relativeTime(date) : ''
+  };
+}
+
+function _readBirthdayCalendar(days) {
+  var calId = cfgGet('CALENDAR_BIRTHDAYS_ID');
+  if (!calId) return [];
+  var cal = CalendarApp.getCalendarById(calId);
+  if (!cal) return [];
+  var start = startOfDay(now());
+  var end = addDays(start, days || 30);
+  return cal.getEvents(start, end).map(function (ev) {
+    return { id: 'bday_' + ev.getId(), title: ev.getTitle(), date: ev.getStartTime().toISOString(), kind: 'birthday', source: 'calendar' };
+  });
+}
+
+function getCountdownsSection() {
+  var manual = isConfigured('sheet') ? storeReadAll(COUNTDOWNS_TAB, COUNTDOWN_HEADERS) : getMockData().countdowns;
+  var live = isConfigured('sheet') || isConfigured('calendar');
+  var rows = manual.slice();
+  if (isConfigured('calendar')) {
+    tryOr([], function () { return _readBirthdayCalendar(30); }).value.forEach(function (b) { rows.push(b); });
+  }
+  var items = rows.map(_decorateCountdown)
+    .filter(function (c) { return c.days_until === null || c.days_until >= 0; })
+    .sort(function (a, b) { return (a.days_until == null ? 1e9 : a.days_until) - (b.days_until == null ? 1e9 : b.days_until); });
+  return { live: live, data: { items: items } };
+}
+
+// Birthdays within N days — used by the Telegram bot query.
+function getUpcomingBirthdays(days) {
+  return getCountdownsSection().data.items.filter(function (c) {
+    return c.kind === 'birthday' && c.days_until != null && c.days_until <= (days || 30);
+  });
+}
+
+/* ===== nlp.gs ===== */
+/**
+ * nlp.gs — natural-language → structured command parsing.
+ *
+ * parseCommand() tries the AI parser (ai.gs) first, then ALWAYS falls back to a
+ * deterministic regex parser so common commands work with zero AI config or
+ * when the LLM is down (a hard-won v1 lesson). Output shape:
+ *   { action, target?, params:{}, confidence, source:'ai'|'regex' }
+ * Unknown input → action 'unknown' (the bot then asks a clarifying question,
+ * never guesses a destructive action).
+ */
+
+var QUERY_KEYWORDS = {
+  today: 'today', tomorrow: 'tomorrow', 'this week': 'week', week: 'week',
+  overdue: 'overdue', tasks: 'tasks', 'open tasks': 'tasks',
+  birthdays: 'birthdays', portfolio: 'portfolio', 'net worth': 'portfolio',
+  srs: 'srs', cpf: 'cpf', dividends: 'dividends', bills: 'bills', habits: 'habits'
+};
+
+// Parse a relative/absolute "when" phrase into an ISO datetime (end of day).
+function parseWhen(text) {
+  if (!text) return null;
+  var s = String(text).toLowerCase().trim();
+  var base = startOfDay(now());
+  if (/\btoday\b/.test(s)) return _eod(base);
+  if (/\btomorrow\b/.test(s)) return _eod(addDays(base, 1));
+  if (/\bnext week\b/.test(s)) return _eod(addDays(base, 7));
+  var inN = s.match(/\bin (\d+) days?\b/);
+  if (inN) return _eod(addDays(base, Number(inN[1])));
+  var weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  for (var i = 0; i < weekdays.length; i++) {
+    if (new RegExp('\\b' + weekdays[i] + '\\b').test(s)) {
+      var delta = (i - base.getDay() + 7) % 7 || 7;
+      return _eod(addDays(base, delta));
+    }
+  }
+  var iso = s.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (iso) return _eod(toDate(iso[1]));
+  return null;
+}
+function _eod(d) { var x = startOfDay(d); x.setHours(18, 0, 0, 0); return x.toISOString(); }
+
+// Deterministic fallback parser. Always available.
+function regexParse(text) {
+  var raw = String(text || '').trim();
+  var s = raw.toLowerCase();
+  if (!s) return { action: 'unknown', params: {}, confidence: 0, source: 'regex' };
+
+  var m;
+  if ((m = raw.match(/^add\s+task\s+(.+)/i))) {
+    var rest = m[1];
+    var when = null;
+    var dueMatch = rest.match(/\s+(due|by|on)\s+(.+)$/i);
+    var title = rest;
+    if (dueMatch) {
+      when = parseWhen(dueMatch[2]);
+      if (when) title = rest.slice(0, dueMatch.index).trim();
+    }
+    return { action: 'add_task', params: { title: title, due: when }, confidence: 0.9, source: 'regex' };
+  }
+  if ((m = raw.match(/^(complete|done|finish)\s+(.+)/i))) {
+    return { action: 'complete_task', target: m[2].trim(), params: { title: m[2].trim() }, confidence: 0.8, source: 'regex' };
+  }
+  if ((m = raw.match(/^(delete|remove)\s+(.+)/i))) {
+    return { action: 'soft_delete_task', target: m[2].trim(), params: { title: m[2].trim() }, confidence: 0.8, source: 'regex' };
+  }
+  if ((m = raw.match(/^(note:?|remember)\s+(.+)/i))) {
+    return { action: 'add_note', params: { text: m[2].trim() }, confidence: 0.85, source: 'regex' };
+  }
+  if ((m = raw.match(/^add\s+bill\s+(.+?)\s+\$?(\d+(?:\.\d+)?)/i))) {
+    return { action: 'add_bill', params: { name: m[1].trim(), amount: Number(m[2]) }, confidence: 0.8, source: 'regex' };
+  }
+
+  var keys = Object.keys(QUERY_KEYWORDS).sort(function (a, b) { return b.length - a.length; });
+  for (var i = 0; i < keys.length; i++) {
+    if (new RegExp('(^|\\b)' + keys[i].replace(/ /g, '\\s+') + '($|\\b)').test(s)) {
+      return { action: 'query', target: QUERY_KEYWORDS[keys[i]], params: {}, confidence: 0.7, source: 'regex' };
+    }
+  }
+  return { action: 'unknown', params: { text: raw }, confidence: 0, source: 'regex' };
+}
+
+// Public entrypoint: AI first (if configured), regex fallback always.
+function parseCommand(text) {
+  if (isConfigured('ai')) {
+    var ai = tryOr(null, function () { return aiParseCommand(text); });
+    if (ai.ok && ai.value && ai.value.action && ai.value.action !== 'unknown') {
+      ai.value.source = 'ai';
+      return ai.value;
+    }
+  }
+  return regexParse(text);
+}
+
+/* ===== ai.gs ===== */
+/**
+ * ai.gs — Gemini via the Vertex AI REST endpoint.
+ *
+ * v1 lesson: do NOT use the VertexAI "advanced service" wrapper (fragile
+ * positional-arg parsing). Call the REST endpoint directly with UrlFetchApp +
+ * ScriptApp.getOAuthToken() and the cloud-platform scope. Used for command
+ * parsing (nlp.gs) and the daily briefing (briefing.gs). Always optional —
+ * callers fall back to regex / templated text.
+ */
+
+function _vertexEndpoint(model) {
+  var project = cfgGet('GCP_PROJECT_ID');
+  var location = cfgGet('GCP_LOCATION') || 'us-central1';
+  return 'https://' + location + '-aiplatform.googleapis.com/v1/projects/' + project +
+    '/locations/' + location + '/publishers/google/models/' + model + ':generateContent';
+}
+
+function _vertexGenerate(prompt, opts) {
+  opts = opts || {};
+  var model = getSettings().aiModel;
+  var payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: opts.temperature || 0.2, maxOutputTokens: opts.maxTokens || 512 }
+  };
+  var resp = UrlFetchApp.fetch(_vertexEndpoint(model), {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() >= 400) throw new Error('Vertex ' + resp.getResponseCode() + ': ' + resp.getContentText());
+  var json = JSON.parse(resp.getContentText());
+  var parts = json && json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts;
+  return parts && parts[0] ? parts[0].text : '';
+}
+
+// Ask the model to emit a strict JSON command. Throws on unparseable output so
+// nlp.gs falls back to regex.
+function aiParseCommand(text) {
+  var prompt =
+    'You convert a personal-assistant message into a JSON command. ' +
+    'Respond with ONLY minified JSON, no prose. Schema: ' +
+    '{"action":"add_task|complete_task|soft_delete_task|add_note|add_bill|query|unknown",' +
+    '"target":string?,"params":{}}. ' +
+    'For queries, target is one of today|tomorrow|week|overdue|tasks|birthdays|portfolio|srs|cpf|dividends|bills|habits. ' +
+    'Message: ' + JSON.stringify(text);
+  var out = _vertexGenerate(prompt, { temperature: 0 });
+  var jsonText = (out.match(/\{[\s\S]*\}/) || [out])[0];
+  var cmd = JSON.parse(jsonText);
+  if (!cmd.params) cmd.params = {};
+  return cmd;
+}
+
+function aiSummarize(prompt) {
+  return _vertexGenerate(prompt, { temperature: 0.4, maxTokens: 256 });
+}
+
+function aiTestCall() {
+  var out = _vertexGenerate('Reply with the single word: ok', { temperature: 0 });
+  return { ok: true, sample: String(out).slice(0, 40) };
+}
+
+/* ===== capture.gs ===== */
+/**
+ * capture.gs — universal quick capture + query answering.
+ *
+ * quickCapture() takes one free-text input (dashboard box or Telegram message),
+ * parses it (nlp.gs), and routes to the right module. answerQuery() turns a
+ * query target into human text reused by the bot and the Home view.
+ *
+ * Destructive routing (complete/delete) is gated by the caller (Telegram asks
+ * yes/no first). quickCapture executes non-destructive captures directly and
+ * returns a structured result for destructive ones so the UI can confirm.
+ */
+
+function quickCapture(text, opts) {
+  opts = opts || {};
+  var cmd = parseCommand(text);
+  return routeCommand(cmd, opts);
+}
+
+function routeCommand(cmd, opts) {
+  opts = opts || {};
+  switch (cmd.action) {
+    case 'add_task':
+      var t = addTask(cmd.params.title, { due: cmd.params.due, actor: opts.actor });
+      return { ok: true, kind: 'task', message: 'Added task: ' + t.task.title, result: t };
+    case 'add_note':
+      var n = addNote(cmd.params.text);
+      return { ok: true, kind: 'note', message: 'Noted.', result: n };
+    case 'add_bill':
+      var b = addBill(cmd.params.name, cmd.params.amount, {});
+      return { ok: true, kind: 'bill', message: 'Added bill: ' + b.bill.name, result: b };
+    case 'complete_task':
+    case 'soft_delete_task':
+      var match = findTaskByTitle(cmd.params.title || cmd.target);
+      if (!match) return { ok: false, kind: 'clarify', message: 'No open task matches "' + (cmd.params.title || cmd.target) + '". Which one?' };
+      if (opts.execute) {
+        var res = cmd.action === 'complete_task'
+          ? completeTask(match.id, match.source)
+          : softDeleteTask(match.id, match.source);
+        return { ok: true, kind: cmd.action, message: (cmd.action === 'complete_task' ? 'Completed: ' : 'Deleted: ') + match.title, result: res };
+      }
+      return { ok: true, kind: 'confirm', action: cmd.action, target: match, message: 'Confirm ' + (cmd.action === 'complete_task' ? 'complete' : 'delete') + ' "' + match.title + '"? (yes/no)' };
+    case 'query':
+      return { ok: true, kind: 'query', message: answerQuery(cmd.target), target: cmd.target };
+    default:
+      return { ok: false, kind: 'clarify', message: "I didn't quite get that. Try: \"add task X due tomorrow\", \"today\", \"overdue\", or \"portfolio\"." };
+  }
+}
+
+function findTaskByTitle(title) {
+  if (!title) return null;
+  var needle = String(title).toLowerCase().trim();
+  var open = listOpenTasks();
+  // Prefer exact, then substring.
+  for (var i = 0; i < open.length; i++) if (open[i].title.toLowerCase() === needle) return open[i];
+  for (var j = 0; j < open.length; j++) if (open[j].title.toLowerCase().indexOf(needle) >= 0) return open[j];
+  return null;
+}
+
+// Turn a query target into a friendly text answer.
+function answerQuery(target) {
+  switch (target) {
+    case 'today':    return _agendaText(0);
+    case 'tomorrow': return _agendaText(1);
+    case 'week':     return _weekText();
+    case 'overdue':  return _overdueText();
+    case 'tasks':    return _openTasksText();
+    case 'birthdays': return _birthdaysText();
+    case 'portfolio': return _portfolioText();
+    case 'srs':      return _srsText();
+    case 'cpf':      return _cpfText();
+    case 'dividends': return _dividendsText();
+    case 'bills':    return _billsText();
+    case 'habits':   return _habitsText();
+    default:         return "Ask me about today, tomorrow, this week, overdue, tasks, bills, birthdays, portfolio, SRS, CPF, or dividends.";
+  }
+}
+
+function _agendaText(dayOffset) {
+  var timeline = getTimeSection().data.timeline;
+  var target = startOfDay(addDays(now(), dayOffset));
+  var items = timeline.filter(function (it) { return isSameDay(it.start, target); });
+  if (!items.length) return (dayOffset === 0 ? 'Nothing scheduled today.' : 'Nothing scheduled.');
+  return (dayOffset === 0 ? 'Today:' : 'Then:') + '\n' + items.map(function (it) {
+    var when = toDate(it.start);
+    var hhmm = when ? ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2) : '';
+    return '• ' + hhmm + ' ' + it.title + (it.overdue ? ' (overdue)' : '');
+  }).join('\n');
+}
+
+function _weekText() {
+  var timeline = getTimeSection().data.timeline;
+  return timeline.length ? 'This week you have ' + timeline.length + ' items. Next: ' + timeline[0].title : 'Your week is clear.';
+}
+
+function _overdueText() {
+  var overdue = listOpenTasks().filter(function (t) { return t.overdue; });
+  if (!overdue.length) return 'No overdue tasks. 🎉';
+  return 'Overdue (' + overdue.length + '):\n' + overdue.map(function (t) { return '• ' + t.title + ' — ' + t.overdueLabel; }).join('\n');
+}
+
+function _openTasksText() {
+  var open = listOpenTasks();
+  if (!open.length) return 'No open tasks.';
+  return 'Open tasks (' + open.length + '):\n' + open.slice(0, 10).map(function (t) {
+    return '• ' + t.title + (t.due ? ' (' + relativeTime(t.due) + ')' : '');
+  }).join('\n');
+}
+
+function _birthdaysText() {
+  var b = getUpcomingBirthdays(30);
+  if (!b.length) return 'No birthdays in the next 30 days.';
+  return 'Birthdays (30d):\n' + b.map(function (c) { return '• ' + c.title + ' — ' + c.relative; }).join('\n');
+}
+
+function _portfolioText() {
+  var s = getFinancesSection().data.summary;
+  return 'Portfolio: ' + formatMoney(s.total_portfolio_value.value, 'SGD') +
+    '\nEst. annual dividends: ' + formatMoney(s.annual_dividends_est.value, 'SGD');
+}
+function _srsText() {
+  var s = getFinancesSection().data.summary;
+  return 'SRS balance: ' + formatMoney(s.srs_balance.value, 'SGD') +
+    '\nTop-up room left: ' + formatMoney(s.srs_topup_remaining.value, 'SGD') + ' (cap ' + formatMoney(s.srs_topup_remaining.cap, 'SGD') + ')';
+}
+function _cpfText() {
+  var s = getFinancesSection().data.summary;
+  return 'CPF total: ' + formatMoney(s.cpf_total.value, 'SGD');
+}
+function _dividendsText() {
+  var divs = getFinancesSection().data.dividends;
+  if (!divs.length) return 'No upcoming dividends recorded.';
+  return 'Dividends:\n' + divs.map(function (d) { return '• ' + d.instrument + ': ' + formatMoney(d.amount, d.currency); }).join('\n');
+}
+function _billsText() {
+  var b = getBillsSection().data;
+  if (!b.next_bill) return 'No bills recorded.';
+  return 'Next bill: ' + b.next_bill.name + ' ' + formatMoney(b.next_bill.amount, b.next_bill.currency) + ' ' + b.next_bill.relative +
+    '\nMonthly total: ' + formatMoney(b.monthly_total, 'SGD');
+}
+function _habitsText() {
+  var items = getHabitsSection().data.items;
+  if (!items.length) return 'No habits tracked.';
+  return 'Habits:\n' + items.map(function (h) { return '• ' + h.title + ' — ' + h.streak + ' day streak' + (h.done_today ? ' ✓' : ''); }).join('\n');
+}
+
+/* ===== telegram.gs ===== */
+/**
+ * telegram.gs — two-way Telegram assistant (polling) + outbound reminders.
+ *
+ * Hard-won v1 lessons baked in:
+ *   - Webhooks via Apps Script /exec are unreliable (302). Use POLLING: a
+ *     1-minute time-trigger calls getUpdates, tracks an offset, processes new
+ *     updates. The webhook handler is kept ONLY as an optional path and still
+ *     requires a URL secret.
+ *   - Deduplicate by update_id (persist last seen) so retries never double-send.
+ *
+ * Lockdown: whitelist one chat_id; require a URL secret for any webhook;
+ * destructive actions need an explicit yes/no; unknown input → clarifying
+ * question, never a guessed action.
+ */
+
+var TG_API = 'https://api.telegram.org/bot';
+var TG_OFFSET_KEY = 'TELEGRAM_LAST_UPDATE_ID';
+var TG_PENDING_KEY = 'TELEGRAM_PENDING';
+
+function _tgToken() {
+  var t = cfgGet('TELEGRAM_BOT_TOKEN');
+  if (!t) throw new Error('TELEGRAM_BOT_TOKEN not configured');
+  return t;
+}
+
+function telegramSend(text, chatId) {
+  var chat = chatId || cfgGet('TELEGRAM_CHAT_ID');
+  var resp = UrlFetchApp.fetch(TG_API + _tgToken() + '/sendMessage', {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ chat_id: chat, text: text }),
+    muteHttpExceptions: true
+  });
+  return resp.getResponseCode() < 400;
+}
+
+function _isWhitelisted(chatId) {
+  return String(chatId) === String(cfgGet('TELEGRAM_CHAT_ID'));
+}
+
+// --- Polling entrypoint (time trigger) -------------------------------------
+function telegramPoll() {
+  if (!isConfigured('telegram')) return { ok: false, message: 'Telegram not configured' };
+  var lastSeen = Number(cfgGet(TG_OFFSET_KEY)) || 0;
+  var resp = UrlFetchApp.fetch(TG_API + _tgToken() + '/getUpdates?offset=' + (lastSeen + 1) + '&timeout=0', { muteHttpExceptions: true });
+  var body = JSON.parse(resp.getContentText() || '{}');
+  var updates = body.result || [];
+  var processed = 0, maxId = lastSeen;
+
+  updates.forEach(function (u) {
+    if (u.update_id <= lastSeen) return; // dedup: already processed
+    if (u.update_id > maxId) maxId = u.update_id;
+    tryOr(null, function () { processUpdate(u); });
+    processed++;
+  });
+
+  if (maxId > lastSeen) cfgSet(TG_OFFSET_KEY, maxId);
+  return { ok: true, processed: processed, offset: maxId };
+}
+
+function processUpdate(update) {
+  var msg = update.message || update.edited_message;
+  if (!msg || !msg.text) return { ignored: true };
+  return handleIncoming(msg.chat.id, msg.text);
+}
+
+// --- Optional webhook path (requires URL secret) ----------------------------
+function telegramWebhook(e) {
+  var secret = e && e.parameter && e.parameter.secret;
+  if (!secret || secret !== cfgGet('TELEGRAM_URL_SECRET')) {
+    return { ok: false, error: 'forbidden' };
+  }
+  var update = JSON.parse((e.postData && e.postData.contents) || '{}');
+  return processUpdate(update);
+}
+
+// --- Core message handling --------------------------------------------------
+function handleIncoming(chatId, text) {
+  if (!_isWhitelisted(chatId)) {
+    return { ok: false, rejected: true, reason: 'chat_id not whitelisted' };
+  }
+
+  var trimmed = String(text).trim();
+  var pending = _getPending();
+
+  // Resolve an outstanding yes/no confirmation first.
+  if (pending) {
+    if (/^(yes|y|confirm|ok)$/i.test(trimmed)) {
+      _clearPending();
+      var done = routeCommand({ action: pending.action, params: { title: pending.title } }, { execute: true, actor: 'telegram' });
+      telegramSend(done.message, chatId);
+      return done;
+    }
+    if (/^(no|n|cancel|stop)$/i.test(trimmed)) {
+      _clearPending();
+      telegramSend('Cancelled — nothing changed.', chatId);
+      return { ok: true, cancelled: true };
+    }
+    // Neither yes nor no while pending → re-ask, never guess.
+    telegramSend('Please reply yes or no. ' + pending.prompt, chatId);
+    return { ok: true, awaiting: true };
+  }
+
+  var result = quickCapture(trimmed, { actor: 'telegram' }); // execute:false → destructive returns 'confirm'
+  if (result.kind === 'confirm') {
+    _setPending({ action: result.action, title: result.target.title, prompt: result.message });
+  }
+  telegramSend(result.message, chatId);
+  return result;
+}
+
+// --- Pending-confirmation state ---------------------------------------------
+function _getPending() {
+  var raw = cfgGet(TG_PENDING_KEY);
+  return raw ? JSON.parse(raw) : null;
+}
+function _setPending(obj) { cfgSet(TG_PENDING_KEY, JSON.stringify(obj)); }
+function _clearPending() { cfgSet(TG_PENDING_KEY, ''); }
+
+// --- Outbound reminders (time trigger) --------------------------------------
+// Sends reminders for tasks whose reminder_at falls in the last scan window.
+function telegramScanReminders() {
+  if (!isConfigured('telegram')) return { ok: false };
+  var windowMs = (getSettings().reminderScanMinutes || 1) * 60 * 1000;
+  var nowT = nowMs();
+  var due = tryOr([], listOpenTasks).value.filter(function (t) {
+    if (!t.reminder_at) return false;
+    var rt = toDate(t.reminder_at).getTime();
+    return rt <= nowT && rt > nowT - windowMs;
+  });
+  due.forEach(function (t) { telegramSend('⏰ Reminder: ' + t.title); });
+  return { ok: true, sent: due.length };
+}
+
+function telegramTestCall() {
+  var resp = UrlFetchApp.fetch(TG_API + _tgToken() + '/getMe', { muteHttpExceptions: true });
+  if (resp.getResponseCode() >= 400) throw new Error('Telegram getMe failed');
+  return { ok: true };
+}
+
+/* ===== briefing.gs ===== */
+/**
+ * briefing.gs — AI daily/weekly briefing (with a templated fallback).
+ *
+ * buildBriefing() pulls counts from every section and produces a one-line
+ * summary ("3 meetings, 2 overdue tasks, rent due Friday"). If AI is configured
+ * it phrases it; otherwise a deterministic template is used. pushDailyBriefing()
+ * is the time-trigger entrypoint that sends it to Telegram.
+ */
+
+function gatherBriefingFacts() {
+  var timeline = tryOr({ timeline: [], followUps: [] }, function () { return getTimeSection().data; }).value;
+  var todayItems = timeline.timeline.filter(function (it) { return isSameDay(it.start, now()); });
+  var meetings = todayItems.filter(function (it) { return it.kind === 'event'; }).length;
+  var open = tryOr([], listOpenTasks).value;
+  var overdue = open.filter(function (t) { return t.overdue; }).length;
+  var bills = tryOr({ next_bill: null }, function () { return getBillsSection().data; }).value;
+  var habits = tryOr({ items: [] }, function () { return getHabitsSection().data; }).value;
+
+  return {
+    meetings: meetings,
+    todayItems: todayItems,
+    openTasks: open.length,
+    overdue: overdue,
+    nextBill: bills.next_bill,
+    habitsDoneToday: habits.items.filter(function (h) { return h.done_today; }).length,
+    habitsTotal: habits.items.length
+  };
+}
+
+function _templateBriefing(f) {
+  var parts = [];
+  parts.push(f.meetings + (f.meetings === 1 ? ' meeting' : ' meetings') + ' today');
+  if (f.overdue) parts.push(f.overdue + ' overdue task' + (f.overdue === 1 ? '' : 's'));
+  else parts.push(f.openTasks + ' open task' + (f.openTasks === 1 ? '' : 's'));
+  if (f.nextBill) parts.push(f.nextBill.name + ' due ' + f.nextBill.relative);
+  return parts.join(', ') + '.';
+}
+
+// Cached for 30 min so the (paid) AI call doesn't fire on every dashboard load.
+// pushDailyBriefing() forces a fresh one for the morning Telegram message.
+function buildBriefing() {
+  return cached('briefing', 1800, _buildBriefingUncached);
+}
+
+function _buildBriefingUncached() {
+  var f = gatherBriefingFacts();
+  var template = _templateBriefing(f);
+  if (isConfigured('ai')) {
+    var ai = tryOr(null, function () {
+      return aiSummarize('Write a single warm, concise sentence summarising my day from these facts. No preamble. Facts: ' + JSON.stringify(f));
+    });
+    if (ai.ok && ai.value) return { text: String(ai.value).trim(), facts: f, source: 'ai', generatedAt: now().toISOString() };
+  }
+  return { text: template, facts: f, source: 'template', generatedAt: now().toISOString() };
+}
+
+// Time-trigger entrypoint: push the morning briefing to Telegram.
+function pushDailyBriefing() {
+  cacheRemove('briefing');           // force a fresh, up-to-date briefing
+  var b = buildBriefing();
+  var greeting = _greeting() + '! ' + b.text;
+  if (isConfigured('telegram')) {
+    tryOr(null, function () { return telegramSend(greeting); });
+  }
+  auditLog('briefing.push', null, { source: b.source });
+  return b;
+}
+
+function _greeting() {
+  var h = now().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/* ===== search.gs ===== */
+/**
+ * search.gs — global search across tasks, events, notes, and holdings.
+ * Case-insensitive substring match; returns a flat, typed result list.
+ */
+
+function globalSearch(query) {
+  var q = String(query || '').toLowerCase().trim();
+  if (!q) return { query: query, results: [] };
+  var results = [];
+
+  tryOr([], listOpenTasks).value.forEach(function (t) {
+    if (t.title.toLowerCase().indexOf(q) >= 0) results.push({ type: 'task', title: t.title, meta: t.due ? relativeTime(t.due) : 'no due date', id: t.id, source: t.source });
+  });
+  tryOr({ timeline: [] }, function () { return getTimeSection().data; }).value.timeline.forEach(function (it) {
+    if (it.kind === 'event' && it.title.toLowerCase().indexOf(q) >= 0) results.push({ type: 'event', title: it.title, meta: relativeTime(it.start), source: 'calendar' });
+  });
+  tryOr({ items: [] }, function () { return getNotesSection().data; }).value.items.forEach(function (n) {
+    if (n.text.toLowerCase().indexOf(q) >= 0) results.push({ type: 'note', title: n.text, meta: n.relative, id: n.id, source: 'sheet' });
+  });
+  tryOr({ holdings: [] }, function () { return getFinancesSection().data; }).value.holdings.forEach(function (h) {
+    if (String(h.instrument).toLowerCase().indexOf(q) >= 0) results.push({ type: 'holding', title: h.instrument, meta: formatMoney(h.current_value, h.currency), source: 'ibkr' });
+  });
+
+  return { query: query, results: results };
+}
+
+/* ===== settings.gs ===== */
+/**
+ * settings.gs — settings screen backend + credential status (read-only secrets).
+ *
+ * getSettingsState() returns editable settings plus a per-integration status
+ * (configured? which keys missing?) WITHOUT exposing any secret value. The
+ * frontend renders this; saveSetting() validates against DEFAULT_SETTINGS.
+ */
+
+function getSettingsState() {
+  var integrations = Object.keys(CREDENTIAL_REGISTRY).map(function (key) {
+    var reg = CREDENTIAL_REGISTRY[key];
+    var missing = reg.keys.filter(function (k) { return !cfgIsSet(k); });
+    return {
+      key: key,
+      label: reg.label,
+      configured: missing.length === 0,
+      // Names only — never values.
+      keys: reg.keys,
+      missing: missing
+    };
+  });
+  return { settings: getSettings(), defaults: DEFAULT_SETTINGS, integrations: integrations };
+}
+
+function saveSetting(key, value) {
+  var updated = setSetting(key, value);
+  auditLog('setting.save', key, { value: value });
+  return { ok: true, settings: updated };
+}
+
+/* ===== diagnose.gs ===== */
+/**
+ * diagnose.gs — one-click self-check.
+ *
+ * For every integration: is it configured? does a live test call succeed?
+ * Returns structured per-integration status and logs a summary. This saved
+ * enormous debugging time in v1 — run it from the Apps Script editor or the
+ * Settings screen's "test each integration" button.
+ */
+
+var INTEGRATION_TESTS = {
+  calendar: function () { return calendarTestCall(); },
+  ticktick: function () { return tickTickTestCall(); },
+  telegram: function () { return telegramTestCall(); },
+  ibkr: function () { return ibkrTestCall(); },
+  ai: function () { return aiTestCall(); }
+};
+
+function diagnose() {
+  var report = { generatedAt: now().toISOString(), integrations: [] };
+
+  // Sheet first (foundational).
+  report.integrations.push(_diagOne('sheet', function () {
+    var n = storeReadAll('audit', AUDIT_HEADERS); // any read proves access
+    return { ok: true, auditRows: n.length };
+  }));
+
+  Object.keys(INTEGRATION_TESTS).forEach(function (key) {
+    report.integrations.push(_diagOne(key, INTEGRATION_TESTS[key]));
+  });
+
+  var ok = report.integrations.filter(function (i) { return i.status === 'ok'; }).length;
+  report.summary = ok + '/' + report.integrations.length + ' integrations OK';
+  tryOr(null, function () { auditLog('diagnose.run', null, report.summary); });
+  return report;
+}
+
+function _diagOne(key, testFn) {
+  var reg = CREDENTIAL_REGISTRY[key];
+  if (!reg || !isConfigured(key)) {
+    return { key: key, label: reg ? reg.label : key, status: 'not_configured', detail: reg ? ('missing: ' + reg.keys.filter(function (k) { return !cfgIsSet(k); }).join(', ')) : '' };
+  }
+  var r = tryOr(null, testFn);
+  return r.ok
+    ? { key: key, label: reg.label, status: 'ok', detail: r.value }
+    : { key: key, label: reg.label, status: 'error', detail: r.error };
+}
+
+/* ===== Code.gs ===== */
+/**
+ * Code.gs — web entrypoints + state assembly.
+ *
+ * doGet serves the templated dashboard HTML. doPost is a JSON router for edit
+ * actions and NEVER throws (an uncaught throw makes Apps Script 302-redirect,
+ * breaking JSON callers). getDashboardState() assembles every section in its
+ * own try/catch so one failing source degrades to a warning chip while the rest
+ * of the page stays intact — and keeps the last good state per section.
+ *
+ * Client bridge note: the sandboxed HTML talks to the server ONLY via
+ * google.script.run (it cannot fetch its own doPost). Every client-callable
+ * here returns a valid object even on failure, so a bad response never wipes
+ * the previous good state (we also null-guard on the client).
+ */
+
+// --- Web app entrypoints ----------------------------------------------------
+function doGet(e) {
+  var tpl = HtmlService.createTemplateFromFile('dashboard');
+  tpl.bootState = JSON.stringify(getDashboardState());
+  // Default (SAMEORIGIN) X-Frame protection — a private personal dashboard has
+  // no reason to be embeddable cross-origin (avoids clickjacking).
+  return tpl.evaluate()
+    .setTitle('Life Dashboard')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+// JSON router for any external/webhook caller. Wrapped so it can never throw.
+function doPost(e) {
+  var out;
+  try {
+    var body = (e && e.postData && e.postData.contents) ? JSON.parse(e.postData.contents) : {};
+    var action = body.action || (e && e.parameter && e.parameter.action);
+    if (action === 'telegram_webhook') out = telegramWebhook(e);
+    else out = { ok: false, error: 'unknown action' };
+  } catch (err) {
+    out = { ok: false, error: String(err && err.message || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out || { ok: false })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function include(name) {
+  return HtmlService.createHtmlOutputFromFile(name).getContent();
+}
+
+// --- Last-good cache (per section) ------------------------------------------
+function getLastGood(name) {
+  var raw = cfgGet('LASTGOOD_' + name);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+function setLastGood(name, data) {
+  tryOr(null, function () { cfgSet('LASTGOOD_' + name, JSON.stringify(data)); });
+}
+
+// Build one section: live/mock on success, degraded (last-good or fallback) on
+// throw. Never lets one source blank the page or flip the whole app to mock.
+function buildSection(name, fn, emptyFallback) {
+  var r = tryOr(null, fn);
+  if (r.ok && r.value) {
+    setLastGood(name, r.value.data);
+    return { source: r.value.live ? 'live' : 'mock', data: r.value.data };
+  }
+  var cached = getLastGood(name);
+  return { source: 'degraded', warning: r.error || 'unavailable', data: cached !== null ? cached : emptyFallback };
+}
+
+// --- Full dashboard state ---------------------------------------------------
+// Cached briefly (CacheService) so repeated page loads / refreshes don't re-hit
+// Calendar, TickTick and Vertex AI. Mutations bust the cache via auditLog.
+function getDashboardState() {
+  clearExecMemo();
+  return cached('dash_state', 30, _buildDashboardState);
+}
+
+function _buildDashboardState() {
+  var sections = {
+    time:       buildSection('time', getTimeSection, { timeline: [], followUps: [] }),
+    tasks:      buildSection('tasks', getTasksSection, { items: [] }),
+    finances:   buildSection('finances', getFinancesSection, { summary: {}, holdings: [], dividends: [] }),
+    habits:     buildSection('habits', getHabitsSection, { items: [] }),
+    bills:      buildSection('bills', getBillsSection, { items: [], monthly_total: 0, annual_total: 0, next_bill: null }),
+    goals:      buildSection('goals', getGoalsSection, { items: [] }),
+    notes:      buildSection('notes', getNotesSection, { items: [] }),
+    countdowns: buildSection('countdowns', getCountdownsSection, { items: [] })
+  };
+
+  var sourceMap = {}, warnings = [];
+  Object.keys(sections).forEach(function (k) {
+    sourceMap[k] = sections[k].source;
+    if (sections[k].warning) warnings.push({ section: k, message: sections[k].warning });
+  });
+
+  var mode = _resolveMode(sourceMap);
+  var home = _buildHome(sections);
+
+  return {
+    mode: mode,
+    generatedAt: now().toISOString(),
+    sources: sourceMap,
+    warnings: warnings,
+    settings: getSettings(),
+    home: home,
+    sections: sections
+  };
+}
+
+function _resolveMode(sourceMap) {
+  var vals = Object.keys(sourceMap).map(function (k) { return sourceMap[k]; });
+  if (vals.indexOf('degraded') >= 0) return 'degraded';
+  if (vals.every(function (v) { return v === 'mock'; })) return 'mock';
+  return 'live';
+}
+
+// Home / command center: the 5 things checked daily, above the tabs.
+function _buildHome(sections) {
+  var tasks = sections.tasks.data.items || [];
+  var overdue = tasks.filter(function (t) { return t.overdue; });
+  var timeline = (sections.time.data.timeline || []);
+  var today = timeline.filter(function (it) { return isSameDay(it.start, now()); });
+  var briefing = tryOr({ text: '', facts: {} }, buildBriefing).value;
+
+  return {
+    greeting: _greeting(),
+    date: now().toISOString(),
+    summary: briefing.text,
+    todayAgenda: today,
+    topTasks: tasks.slice(0, 3),
+    overdueCount: overdue.length,
+    nextBill: sections.bills.data.next_bill || null,
+    habits: sections.habits.data.items || [],
+    countdowns: (sections.countdowns.data.items || []).slice(0, 3)
+  };
+}
+
+// --- Client-callable action wrappers (always return a valid object) ---------
+// google.script.run delivers null to the success handler if a server fn throws,
+// so we wrap each so the client always gets {ok:...} and never a null wipe.
+function _safe(fn) {
+  try { var v = fn(); return v && typeof v === 'object' ? v : { ok: true, value: v }; }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+}
+
+function apiAddTask(title, opts)            { return _safe(function () { return addTask(title, opts); }); }
+function apiCompleteTask(id, source)        { return _safe(function () { return completeTask(id, source); }); }
+function apiReopenTask(id, source)          { return _safe(function () { return reopenTask(id, source); }); }
+function apiDeleteTask(id, source)          { return _safe(function () { return softDeleteTask(id, source); }); }
+function apiQuickCapture(text)              { return _safe(function () { return quickCapture(text, { actor: 'dashboard', execute: true }); }); }
+function apiCheckInHabit(id)                { return _safe(function () { return checkInHabit(id); }); }
+function apiRefreshIbkr()                   { return _safe(function () { return refreshIbkr(); }); }
+function apiSearch(q)                       { return _safe(function () { return globalSearch(q); }); }
+function apiSaveSetting(key, value)         { return _safe(function () { return saveSetting(key, value); }); }
+function apiDiagnose()                      { return _safe(function () { return diagnose(); }); }
+function apiGetState()                      { return _safe(function () { return getDashboardState(); }); }
+
+
+/* ---- seed the mock store with the demo dataset so it renders "live" ---- */
+(function () {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('SHEET_ID', 'preview');
+  props.setProperty('CALENDAR_PERSONAL_IDS', 'personal');
+  props.setProperty('CALENDAR_BUSY_IDS', 'work');
+  var md = getMockData();
+  function seedTab(tab, headers, rows) {
+    var arr = [headers.slice()];
+    rows.forEach(function (r) { arr.push(headers.map(function (h) { return r[h] === undefined ? '' : r[h]; })); });
+    __m.store.sheets[tab] = arr;
+  }
+  seedTab('tasks', TASK_HEADERS, md.tasks);
+  seedTab('holdings', HOLDING_HEADERS, md.holdings);
+  seedTab('dividends', DIVIDEND_HEADERS, md.dividends);
+  seedTab('habits', HABIT_HEADERS, md.habits.map(function (h) { return { id: h.id, title: h.title, cadence: h.cadence, target_per_week: h.target_per_week, checkins: (h.checkins || []).join(','), updated_at: h.updated_at }; }));
+  seedTab('bills', BILL_HEADERS, md.bills);
+  seedTab('goals', GOAL_HEADERS, md.goals);
+  seedTab('notes', NOTE_HEADERS, md.notes);
+  seedTab('countdowns', COUNTDOWN_HEADERS, md.countdowns);
+  // Calendars: owned personal events in full; the work event shows only as "Busy".
+  __m.store.calendars['personal'] = md.events.filter(function (e) { return e.owned; })
+    .map(function (e) { return { id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay }; });
+  __m.store.calendars['work'] = md.events.filter(function (e) { return !e.owned; })
+    .map(function (e) { return { id: e.id, title: 'CONFIDENTIAL — should never render', start: e.start, end: e.end, allDay: e.allDay }; });
+})();
+
+
+/* ---- google.script.run shim (async, mirrors success/failure handlers) ---- */
+function Builder(s, f) { this._s = s || function () {}; this._f = f || function () {}; }
+Builder.prototype.withSuccessHandler = function (fn) { return new Builder(fn, this._f); };
+Builder.prototype.withFailureHandler = function (fn) { return new Builder(this._s, fn); };
+["apiAddTask","apiCompleteTask","apiReopenTask","apiDeleteTask","apiQuickCapture","apiCheckInHabit","apiRefreshIbkr","apiSearch","apiSaveSetting","apiDiagnose","apiGetState"].forEach(function (n) {
+  Builder.prototype[n] = function () {
+    var a = arguments, self = this;
+    setTimeout(function () {
+      var r; try { r = window[n].apply(null, a); } catch (e) { return self._f(e); }
+      self._s(r);
+    }, 40);
+    return self;
+  };
+});
+var google = { script: { run: new Builder() } };
+
+</script>
+<script>
+// Boot state injected by the Apps Script template (getDashboardState JSON).
+// hasServer gates the google.script.run bridge so the page degrades cleanly if
+// the bridge is ever unavailable.
+var STATE = getDashboardState();
+var hasServer = (typeof google !== 'undefined' && google.script && google.script.run);
+
+// ---- tiny DOM helpers ----
+function $(s){return document.querySelector(s);}
+function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function money(v,cur){return (cur||'SGD')+' '+(Number(v)||0).toLocaleString('en-SG',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function rel(iso){if(!iso)return '';var d=new Date(iso),diff=d-Date.now(),past=diff<0,s=Math.abs(diff)/1000,l;
+  if(s<45)return 'just now';if(s<3600)l=Math.round(s/60)+'m';else if(s<86400)l=Math.round(s/3600)+'h';
+  else{var dd=Math.round(s/86400);l=dd+(dd===1?' day':' days');}return past?l+' ago':'in '+l;}
+function hhmm(iso){var d=new Date(iso);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+
+// ---- server bridge with null-guard (a failed call never wipes state) ----
+function call(fn,args,onOk){
+  if(!hasServer){toast('Preview mode — '+fn+' is a no-op',''); return;}
+  var runner=google.script.run.withSuccessHandler(function(res){
+    if(res==null){toast('No response — keeping current view','err');return;}
+    if(res.ok===false){toast(res.error||res.message||'Action failed','err');}
+    if(onOk)onOk(res);
+  }).withFailureHandler(function(e){toast((e&&e.message)||'Server error','err');});
+  runner[fn].apply(runner,args||[]); // bind `this` to the runner (robust)
+}
+
+function toast(msg,kind){var t=el('div','toast'+(kind?' '+kind:''),esc(msg));$('#toasts').appendChild(t);
+  setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},200);},2600);}
+
+// ---- badges / items ----
+function badge(src){var s=(src||'sheet').toLowerCase();var lbl={calendar:'Cal',ticktick:'TickTick',sheet:'Sheet',ibkr:'IBKR'}[s]||s;
+  return '<span class="badge '+s+'">'+esc(lbl)+'</span>';}
+
+function renderEmpty(node,msg){node.innerHTML='<div class="empty">'+esc(msg)+'</div>';}
+
+// ============ RENDER ============
+function render(){
+  if(!STATE){return;}
+  // mode chip
+  var chip=$('#modeChip');var m=STATE.mode;
+  chip.className='chip '+m;chip.querySelector('.lbl').textContent=m.charAt(0).toUpperCase()+m.slice(1);
+  chip.title='Sources — '+Object.keys(STATE.sources).map(function(k){return k+': '+STATE.sources[k];}).join(', ');
+
+  // warnings
+  var w=$('#warn');w.innerHTML='';
+  (STATE.warnings||[]).forEach(function(x){w.appendChild(el('div','warnbar','⚠ '+esc(x.section)+' is degraded — showing last known data. ('+esc(x.message)+')'));});
+
+  renderHome();renderTime();renderTasks();renderMoney();renderMore();
+}
+
+function renderHome(){
+  var h=STATE.home;
+  $('#greet').textContent=h.greeting||'Life Dashboard';
+  $('#homeGreet').textContent=(h.greeting||'Hello')+'.';
+  $('#homeDate').textContent=new Date(h.date).toLocaleDateString('en-SG',{weekday:'long',day:'numeric',month:'long'});
+  $('#homeSummary').textContent=h.summary||'';
+  var stats=$('#homeStats');stats.innerHTML='';
+  stats.appendChild(statCard('Overdue',h.overdueCount,h.overdueCount?'needs attention':'all clear',h.overdueCount?'neg':'pos'));
+  stats.appendChild(statCard('Top tasks',(h.topTasks||[]).length, (h.topTasks[0]&&h.topTasks[0].title)||'—'));
+  stats.appendChild(statCard('Next bill',h.nextBill?money(h.nextBill.amount,h.nextBill.currency):'—',h.nextBill?h.nextBill.name+' '+h.nextBill.relative:'no bills'));
+  var ag=$('#homeAgenda');ag.innerHTML='';
+  if(!h.todayAgenda||!h.todayAgenda.length){renderEmpty(ag,'Nothing scheduled today. Enjoy the space.');}
+  else h.todayAgenda.forEach(function(it){ag.appendChild(timelineItem(it));});
+  var hb=$('#homeHabits');hb.innerHTML='';
+  if(!h.habits||!h.habits.length){renderEmpty(hb,'No habits yet.');}
+  else h.habits.forEach(function(hh){hb.appendChild(habitRing(hh));});
+}
+
+function statCard(label,num,meta,cls){
+  var c=el('div','card');c.innerHTML='<div class="stat"><span class="label">'+esc(label)+
+    '</span><span class="num tnum">'+esc(num)+'</span><span class="meta '+(cls||'')+'">'+esc(meta||'')+'</span></div>';
+  return c;
+}
+function habitRing(h){
+  var w=el('div');w.style.textAlign='center';w.style.minWidth='64px';
+  w.innerHTML='<div class="ringwrap"><div class="ring" style="--p:'+Math.round(h.ring*100)+'"><span>'+h.streak+'</span></div></div>'+
+    '<div style="font-size:var(--fs-micro);margin-top:4px">'+esc(h.title)+'</div>';
+  w.querySelector('.ring').addEventListener('click',function(){
+    call('apiCheckInHabit',[h.id],function(){reload();});
+  });
+  w.style.cursor='pointer';w.title='Tap to check in';
+  return w;
+}
+
+function timelineItem(it){
+  var i=el('div','item');
+  var icon=it.kind==='event'?(it.owned?'📌':'🔒'):'✓';
+  var meta=[];if(!it.allDay&&it.start)meta.push(hhmm(it.start));
+  if(it.overdue)meta.push('<span class="badge overdue">'+esc(it.overdueLabel||'overdue')+'</span>');
+  meta.push(badge(it.source));
+  i.innerHTML='<div class="lead">'+icon+'</div><div class="body"><div class="title">'+esc(it.title)+
+    '</div><div class="meta">'+meta.join(' ')+'</div></div>';
+  return i;
+}
+
+function renderTime(){
+  var tl=$('#timeline');tl.innerHTML='';var t=STATE.sections.time.data;
+  if(!t.timeline.length)renderEmpty(tl,'Clear skies for the next 7 days.');
+  else t.timeline.forEach(function(it){tl.appendChild(timelineItem(it));});
+  var fu=$('#followups');fu.innerHTML='';
+  if(!t.followUps.length)renderEmpty(fu,'No loose ends.');
+  else t.followUps.forEach(function(f){
+    var i=el('div','item');i.innerHTML='<div class="lead">•</div><div class="body"><div class="title">'+esc(f.title)+
+      '</div><div class="meta">'+badge(f.source)+' added '+rel(f.updated_at)+'</div></div>';
+    fu.appendChild(i);});
+}
+
+function renderTasks(){
+  var list=$('#taskList');list.innerHTML='';var items=STATE.sections.tasks.data.items;
+  if(!items.length){renderEmpty(list,'Inbox zero. 🎉');return;}
+  items.forEach(function(t){
+    var i=el('div','item');
+    var meta=[badge(t.source)];
+    if(t.overdue)meta.push('<span class="badge overdue">'+esc(t.overdueLabel)+'</span>');
+    else if(t.due)meta.push('due '+rel(t.due));
+    i.innerHTML='<button class="btn icon" title="Complete">○</button>'+
+      '<div class="body"><div class="title">'+esc(t.title)+'</div><div class="meta">'+meta.join(' ')+'</div></div>'+
+      '<div class="trail"><button class="btn danger" title="Delete">🗑</button></div>';
+    i.querySelector('button.icon').addEventListener('click',function(){
+      call('apiCompleteTask',[t.id,t.source],function(){toast('Completed: '+t.title,'ok');reload();});});
+    i.querySelector('button.danger').addEventListener('click',function(){
+      confirmDialog('Delete task','Soft-delete "'+esc(t.title)+'"? It stays in your audit log.',function(){
+        call('apiDeleteTask',[t.id,t.source],function(){toast('Deleted','ok');reload();});});});
+    list.appendChild(i);
+  });
+}
+
+function renderMoney(){
+  var f=STATE.sections.finances.data,s=f.summary,grid=$('#moneyStats');grid.innerHTML='';
+  if(s.total_portfolio_value)grid.appendChild(statCard('Total portfolio',money(s.total_portfolio_value.value,'SGD'),'as of '+rel(s.total_portfolio_value.as_of)));
+  if(s.annual_dividends_est)grid.appendChild(statCard('Est. annual dividends',money(s.annual_dividends_est.value,'SGD'),'projected','pos'));
+  if(s.srs_topup_remaining)grid.appendChild(statCard('SRS room left',money(s.srs_topup_remaining.value,'SGD'),'cap '+money(s.srs_topup_remaining.cap,'SGD')));
+  if(s.cpf_total)grid.appendChild(statCard('CPF total',money(s.cpf_total.value,'SGD'),''));
+  var h=$('#holdings');h.innerHTML='';
+  if(!f.holdings.length){renderEmpty(h,'No holdings yet. Add rows in your Sheet or connect IBKR.');return;}
+  f.holdings.forEach(function(r){
+    var i=el('div','item');
+    i.innerHTML='<div class="lead">'+(r.account==='IBKR'?'📈':'🏦')+'</div><div class="body"><div class="title">'+esc(r.instrument)+
+      ' <span class="badge '+(r.account==='IBKR'?'ibkr':'sheet')+'">'+esc(r.account)+'</span></div>'+
+      '<div class="meta">'+esc(r.type)+' · '+esc(r.units)+' units · as of '+rel(r.updated_at)+'</div></div>'+
+      '<div class="trail tnum" style="text-align:right"><div class="title">'+money(r.current_value,r.currency)+'</div>'+
+      '<div class="meta">div '+money(r.annual_dividend_est,r.currency)+'</div></div>';
+    h.appendChild(i);
+  });
+}
+
+function renderMore(){
+  var b=STATE.sections.bills.data;$('#billsSub').textContent='Monthly ≈ '+money(b.monthly_total,'SGD')+' · Annual ≈ '+money(b.annual_total,'SGD');
+  var bn=$('#bills');bn.innerHTML='';
+  if(!b.items.length)renderEmpty(bn,'No bills tracked.');
+  else b.items.forEach(function(x){var i=el('div','item');
+    i.innerHTML='<div class="lead">🧾</div><div class="body"><div class="title">'+esc(x.name)+'</div>'+
+      '<div class="meta">'+esc(x.category||x.cadence)+' · '+esc(x.relative)+'</div></div>'+
+      '<div class="trail tnum"><div class="title">'+money(x.amount,x.currency)+'</div></div>';bn.appendChild(i);});
+  var g=$('#goals');g.innerHTML='';var gs=STATE.sections.goals.data.items;
+  if(!gs.length)renderEmpty(g,'No goals set.');
+  else gs.forEach(function(x){var i=el('div');i.style.padding='var(--s3) 0';i.style.borderBottom='1px solid var(--border)';
+    i.innerHTML='<div style="display:flex;justify-content:space-between"><span class="title">'+esc(x.title)+
+      '</span><span class="meta tnum">'+esc(x.current)+' / '+esc(x.target)+' '+esc(x.unit)+'</span></div>'+
+      '<div class="bar" style="margin-top:6px"><i style="width:'+Math.round(x.progress*100)+'%"></i></div>';g.appendChild(i);});
+  var cd=$('#countdowns');cd.innerHTML='';var cs=STATE.sections.countdowns.data.items;
+  if(!cs.length)renderEmpty(cd,'No upcoming dates.');
+  else cs.forEach(function(x){var i=el('div','item');
+    i.innerHTML='<div class="lead">'+({birthday:'🎂',trip:'✈️',anniversary:'💛'}[x.kind]||'📍')+'</div>'+
+      '<div class="body"><div class="title">'+esc(x.title)+'</div><div class="meta">'+esc(x.relative)+' '+badge(x.source)+'</div></div>'+
+      '<div class="trail tnum"><div class="num" style="font-size:var(--fs-h1)">'+esc(x.days_until)+'</div></div>';cd.appendChild(i);});
+  var nt=$('#notes');nt.innerHTML='';var ns=STATE.sections.notes.data.items;
+  if(!ns.length)renderEmpty(nt,'No notes yet. Capture one with ＋.');
+  else ns.forEach(function(x){var i=el('div','item');
+    i.innerHTML='<div class="lead">📝</div><div class="body"><div class="title">'+esc(x.text)+'</div><div class="meta">'+esc(x.relative)+'</div></div>';nt.appendChild(i);});
+  renderSettings();
+}
+
+function renderSettings(){
+  var node=$('#settings');node.innerHTML='';
+  var st=STATE.settings||{};
+  var rows=[['timezone','Timezone'],['briefingTime','Briefing time'],['weekStart','Week start'],['currency','Currency'],['srsAnnualCap','SRS annual cap']];
+  rows.forEach(function(r){
+    var i=el('div','item');
+    i.innerHTML='<div class="body"><div class="title">'+r[1]+'</div></div>'+
+      '<div class="trail"><input class="input" style="width:130px" value="'+esc(st[r[0]])+'" data-k="'+r[0]+'"></div>';
+    i.querySelector('input').addEventListener('change',function(e){
+      call('apiSaveSetting',[r[0],e.target.value],function(){toast('Saved','ok');});});
+    node.appendChild(i);
+  });
+}
+
+// ---- modal / confirm ----
+function confirmDialog(title,body,onOk,withInput){
+  $('#modalTitle').textContent=title;$('#modalBody').innerHTML=body;
+  var inp=$('#modalInput');inp.style.display=withInput?'block':'none';inp.value='';
+  $('#modalBg').classList.add('open');if(withInput)inp.focus();
+  $('#modalOk').onclick=function(){$('#modalBg').classList.remove('open');onOk(inp.value);};
+  $('#modalCancel').onclick=function(){$('#modalBg').classList.remove('open');};
+}
+
+// ---- reload state ----
+function reload(){call('apiGetState',[],function(res){var s=res.value||res;if(s&&s.sections){STATE=s;render();}});}
+
+// ============ EVENTS ============
+document.querySelectorAll('.navbtn').forEach(function(b){b.addEventListener('click',function(){
+  document.querySelectorAll('.navbtn').forEach(function(x){x.classList.remove('active');});
+  document.querySelectorAll('.view').forEach(function(x){x.classList.remove('active');});
+  b.classList.add('active');$('#view-'+b.dataset.view).classList.add('active');});});
+
+$('#themeBtn').addEventListener('click',function(){
+  var cur=document.documentElement.getAttribute('data-theme');
+  var next=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('theme',next);}catch(e){}});
+try{var sv=localStorage.getItem('theme');if(sv)document.documentElement.setAttribute('data-theme',sv);}catch(e){}
+
+$('#addTaskForm').addEventListener('submit',function(e){e.preventDefault();
+  var v=$('#newTask').value.trim();if(!v)return;$('#newTask').value='';
+  call('apiQuickCapture',[v],function(r){toast((r.message)||'Added','ok');reload();});});
+
+$('#captureBtn').addEventListener('click',function(){quickCaptureDialog();});
+function quickCaptureDialog(){confirmDialog('Quick capture','Type a task, note, or command (e.g. "note: call mum", "add task pay rent due Friday").',function(v){
+  if(v&&v.trim())call('apiQuickCapture',[v.trim()],function(r){toast(r.message||'Captured','ok');reload();});},true);}
+
+$('#searchBtn').addEventListener('click',function(){confirmDialog('Search','Search tasks, events, notes, holdings.',function(q){
+  if(!q)return;call('apiSearch',[q],function(r){var res=(r.value||r).results||[];
+    toast(res.length?res.length+' results — top: '+res[0].title:'No results',res.length?'ok':'');});},true);});
+
+$('#refreshIbkr').addEventListener('click',function(){toast('Refreshing IBKR…','');call('apiRefreshIbkr',[],function(r){
+  var v=r.value||r;toast(v.message||('IBKR updated ('+v.positions+' positions)'),v.ok===false?'err':'ok');reload();});});
+
+$('#diagBtn').addEventListener('click',function(){call('apiDiagnose',[],function(r){var v=r.value||r;
+  toast(v.summary||'Diagnostics complete','ok');});});
+
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.key==='n'){e.preventDefault();quickCaptureDialog();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();$('#searchBtn').click();}});
+
+// boot
+render();
+</script>
+</body>
+</html>

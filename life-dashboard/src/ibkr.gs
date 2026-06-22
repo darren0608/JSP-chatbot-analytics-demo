@@ -59,11 +59,14 @@ function refreshIbkr() {
   if (!isConfigured('ibkr')) {
     return { ok: false, message: 'IBKR not connected. Add IBKR_FLEX_TOKEN and IBKR_FLEX_QUERY_ID in Settings.' };
   }
-  if (cfgGet(IBKR_LOCK_KEY) === '1') {
+  // Store a start timestamp, not a bare flag: a refresh killed by the 6-min
+  // execution limit would otherwise leave a "1" that blocks every future run.
+  var startedAt = Number(cfgGet(IBKR_LOCK_KEY)) || 0;
+  if (startedAt && (nowMs() - startedAt) < 5 * 60 * 1000) {
     return { ok: false, busy: true, message: 'An IBKR refresh is already running — please wait a moment.' };
   }
 
-  cfgSet(IBKR_LOCK_KEY, '1');
+  cfgSet(IBKR_LOCK_KEY, String(nowMs()));
   try {
     var token = cfgGet('IBKR_FLEX_TOKEN');
     var query = cfgGet('IBKR_FLEX_QUERY_ID');

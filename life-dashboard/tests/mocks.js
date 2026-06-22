@@ -124,6 +124,18 @@ function createMocks() {
     }
   };
 
+  // ---- CacheService (in-memory; TTL ignored — fine for deterministic tests) ----
+  store.cache = {};
+  var CacheService = {
+    getScriptCache: function () {
+      return {
+        get: function (k) { return store.cache.hasOwnProperty(k) ? store.cache[k] : null; },
+        put: function (k, v) { store.cache[k] = String(v); },
+        remove: function (k) { delete store.cache[k]; }
+      };
+    }
+  };
+
   // ---- ScriptApp / Utilities / Logger ----
   var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
   var Utilities = { sleep: function () {} };
@@ -151,6 +163,7 @@ function createMocks() {
       CalendarApp: CalendarApp,
       UrlFetchApp: UrlFetchApp,
       LockService: LockService,
+      CacheService: CacheService,
       ScriptApp: ScriptApp,
       Utilities: Utilities,
       Logger: Logger,

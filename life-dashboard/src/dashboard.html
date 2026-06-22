@@ -296,11 +296,12 @@ function hhmm(iso){var d=new Date(iso);return ('0'+d.getHours()).slice(-2)+':'+(
 // ---- server bridge with null-guard (a failed call never wipes state) ----
 function call(fn,args,onOk){
   if(!hasServer){toast('Preview mode — '+fn+' is a no-op',''); return;}
-  google.script.run.withSuccessHandler(function(res){
+  var runner=google.script.run.withSuccessHandler(function(res){
     if(res==null){toast('No response — keeping current view','err');return;}
     if(res.ok===false){toast(res.error||res.message||'Action failed','err');}
     if(onOk)onOk(res);
-  }).withFailureHandler(function(e){toast((e&&e.message)||'Server error','err');})[fn].apply(null,args||[]);
+  }).withFailureHandler(function(e){toast((e&&e.message)||'Server error','err');});
+  runner[fn].apply(runner,args||[]); // bind `this` to the runner (robust)
 }
 
 function toast(msg,kind){var t=el('div','toast'+(kind?' '+kind:''),esc(msg));$('#toasts').appendChild(t);

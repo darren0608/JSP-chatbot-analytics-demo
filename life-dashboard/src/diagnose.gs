@@ -28,6 +28,17 @@ function diagnose() {
     report.integrations.push(_diagOne(key, INTEGRATION_TESTS[key]));
   });
 
+  // FX is keyless/free — report its live reachability (not credential-gated).
+  var fx = tryOr(null, fxTestCall);
+  report.integrations.push({ key: 'fx', label: 'FX rates', status: fx.ok ? 'ok' : 'error', detail: fx.ok ? fx.value : fx.error });
+
+  // Timezone consistency: manifest (runtime) vs the user's setting.
+  report.integrations.push({
+    key: 'timezone', label: 'Timezone',
+    status: timezoneIsConsistent() ? 'ok' : 'warn',
+    detail: 'runtime=' + getScriptTimeZone() + ', setting=' + getSettings().timezone
+  });
+
   var ok = report.integrations.filter(function (i) { return i.status === 'ok'; }).length;
   report.summary = ok + '/' + report.integrations.length + ' integrations OK';
   tryOr(null, function () { auditLog('diagnose.run', null, report.summary); });

@@ -1,0 +1,25 @@
+# Runs the Life Dashboard regression suite in THIS repository.
+# Scoped to life-dashboard/** so it only fires when that project changes.
+# (A self-contained copy also lives at life-dashboard/.github/workflows/test.yml
+#  for when the project is extracted into its own repo.)
+name: life-dashboard
+
+on:
+  push:
+    paths: ['life-dashboard/**']
+  pull_request:
+    paths: ['life-dashboard/**']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: life-dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm test

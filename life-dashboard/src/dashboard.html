@@ -4,6 +4,13 @@
 <base target="_top">
 <meta charset="utf-8">
 <title>Life Dashboard</title>
+<!-- PWA / mobile install hints. The web-app manifest is attached at runtime
+     (Blob URL) to avoid attribute-quoting issues with an inline data URI. -->
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Life">
 <style>
 /* ========================================================================
    DESIGN TOKENS  (see docs/STYLE_GUIDE.md)
@@ -283,6 +290,24 @@ button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
 var STATE = <?!= bootState ?> || null;
 var hasServer = (typeof google !== 'undefined' && google.script && google.script.run);
 
+// PWA: attach an installable web-app manifest at runtime.
+(function(){try{
+  var icon='data:image/svg+xml,'+encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#4f46e5'/><text x='32' y='45' font-family='sans-serif' font-size='38' font-weight='700' text-anchor='middle' fill='white'>L</text></svg>");
+  var mani={name:'Life Dashboard',short_name:'Life',display:'standalone',start_url:'.',
+    background_color:'#0e1014',theme_color:'#4f46e5',icons:[{src:icon,sizes:'any',type:'image/svg+xml'}]};
+  // Set as a data URI via the DOM property (no HTML-attribute quoting issues).
+  var l=document.createElement('link');l.rel='manifest';
+  l.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(mani));
+  document.head.appendChild(l);
+}catch(e){}})();
+
+// Offline tolerance: cache the last good STATE locally and fall back to it if
+// the server delivered nothing (a full service worker isn't reliable inside the
+// Apps Script iframe, so localStorage is the pragmatic choice here).
+function persistState(){try{if(STATE)localStorage.setItem('ld_state',JSON.stringify(STATE));}catch(e){}}
+if(!STATE){try{var c=localStorage.getItem('ld_state');if(c)STATE=JSON.parse(c);}catch(e){}}
+
 // ---- tiny DOM helpers ----
 function $(s){return document.querySelector(s);}
 function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
@@ -326,6 +351,7 @@ function render(){
   (STATE.warnings||[]).forEach(function(x){w.appendChild(el('div','warnbar','⚠ '+esc(x.section)+' is degraded — showing last known data. ('+esc(x.message)+')'));});
 
   renderHome();renderTime();renderTasks();renderMoney();renderMore();
+  persistState();
 }
 
 function renderHome(){
@@ -407,8 +433,8 @@ function renderTasks(){
 
 function renderMoney(){
   var f=STATE.sections.finances.data,s=f.summary,grid=$('#moneyStats');grid.innerHTML='';
-  if(s.total_portfolio_value)grid.appendChild(statCard('Total portfolio',money(s.total_portfolio_value.value,'SGD'),'as of '+rel(s.total_portfolio_value.as_of)));
-  if(s.annual_dividends_est)grid.appendChild(statCard('Est. annual dividends',money(s.annual_dividends_est.value,'SGD'),'projected','pos'));
+  if(s.total_portfolio_value)grid.appendChild(statCard('Total portfolio',money(s.total_portfolio_value.value,'SGD'),(s.total_portfolio_value.estimated?'est. · ':'')+'as of '+rel(s.total_portfolio_value.as_of)));
+  if(s.annual_dividends_est)grid.appendChild(statCard('Est. annual dividends',money(s.annual_dividends_est.value,'SGD'),'projected (est.)','pos'));
   if(s.srs_topup_remaining)grid.appendChild(statCard('SRS room left',money(s.srs_topup_remaining.value,'SGD'),'cap '+money(s.srs_topup_remaining.cap,'SGD')));
   if(s.cpf_total)grid.appendChild(statCard('CPF total',money(s.cpf_total.value,'SGD'),''));
   var h=$('#holdings');h.innerHTML='';

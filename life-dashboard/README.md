@@ -43,9 +43,13 @@ each section live as you add credentials.
 src/
   Code.gs        web entrypoints (doGet/doPost), state assembly, last-good cache, API wrappers
   config.gs      SHEET_ID, cfgGet/Set/IsSet, credential registry, settings, full mock dataset
-  util.gs        pure helpers (dates, money, ids, tryOr) — no Google calls
+  util.gs        pure helpers (dates, money, ids, tryOr, per-exec memo) — no Google calls
+  cache.gs       CacheService caching (state/briefing/FX) + cache-bust — the main cost/quota lever
   store.gs       header-driven Google Sheet wrapper (the ONLY SpreadsheetApp user) + LockService
   log.gs         append-only audit log
+  errors.gs      observability: rate-limited error capture + weekly Telegram health digest
+  fx.gs          FX→SGD rates as data (Sheet/free feed, cached) with constant fallback
+  maintenance.gs daily housekeeping: compact overrides, prune errors, refresh FX
   tasks.gs       task CRUD + Sheet/TickTick merge + soft-delete + override handling
   ticktick.gs    TickTick Open API client
   calendar.gs    Google Calendar reads + Time tab timeline merge (free/busy for work/gov)

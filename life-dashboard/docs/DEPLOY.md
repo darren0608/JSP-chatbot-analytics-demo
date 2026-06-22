@@ -68,6 +68,8 @@ After adding each, open **More → Settings & diagnostics → Test integrations*
    - Function `telegramPoll` → every **1 minute**.
    - (Optional) `telegramScanReminders` → every **1 minute** for task reminders.
    - (Optional) `pushDailyBriefing` → **daily** around your `briefingTime`.
+   - (Optional) `dailyMaintenance` → **daily** (compacts data, refreshes FX rates).
+   - (Optional) `weeklyErrorDigest` → **weekly** (Telegram health digest; silent when healthy).
 3. Message your bot. Try: `today`, `overdue`, `portfolio`,
    `add task pay rent due Friday`, `note: call mum`.
    Destructive actions (`delete …`, `complete …`) always ask **yes/no** first.

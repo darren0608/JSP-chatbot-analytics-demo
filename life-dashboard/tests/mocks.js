@@ -136,10 +136,12 @@ function createMocks() {
     }
   };
 
-  // ---- ScriptApp / Utilities / Logger ----
+  // ---- ScriptApp / Utilities / Logger / Session ----
   var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
   var Utilities = { sleep: function () {} };
   var Logger = { log: function (m) { store.logs.push(m); } };
+  store.scriptTimeZone = 'Asia/Singapore';
+  var Session = { getScriptTimeZone: function () { return store.scriptTimeZone; } };
 
   // ---- HtmlService / ContentService (only used at call-time) ----
   var HtmlService = {
@@ -167,6 +169,7 @@ function createMocks() {
       ScriptApp: ScriptApp,
       Utilities: Utilities,
       Logger: Logger,
+      Session: Session,
       HtmlService: HtmlService,
       ContentService: ContentService
     }

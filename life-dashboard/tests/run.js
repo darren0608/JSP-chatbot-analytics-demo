@@ -396,6 +396,90 @@ test('free-text inputs are length-guarded', () => {
 });
 
 // ===========================================================================
+// FX (rates as data)
+// ===========================================================================
+test('FX: Sheet rates override the fallback; conversion uses them', () => {
+  const { ctx } = loadApp((c, store) => {
+    setProps(store, { SHEET_ID: 's' });
+    seedSheet(store, 'fx', c.FX_HEADERS, [{ currency: 'USD', rate_to_sgd: 1.40, updated_at: dAt(0) }]);
+  });
+  const rates = ctx.getFxRates();
+  eq(rates.USD, 1.40, 'sheet rate used');
+  eq(rates.SGD, 1, 'SGD always 1');
+  eq(ctx.fxToSgd(100, 'USD'), 140);
+});
+
+test('FX: falls back to constants when no sheet row present', () => {
+  const { ctx } = loadApp();
+  ok(ctx.fxToSgd(1, 'USD') > 1, 'fallback rate applied');
+  eq(ctx.fxToSgd(1, 'SGD'), 1);
+});
+
+test('FX: refreshFxRates writes the fx tab from the provider', () => {
+  const { ctx } = loadApp((c, store) => {
+    setProps(store, { SHEET_ID: 's' });
+    store.fetch = () => ({ code: 200, body: JSON.stringify({ rates: { USD: 0.74, EUR: 0.68, GBP: 0.58 } }) });
+  });
+  const res = ctx.refreshFxRates();
+  eq(res.ok, true);
+  const rows = ctx.storeReadAll(ctx.FX_TAB, ctx.FX_HEADERS);
+  ok(rows.some(r => r.currency === 'USD' && Number(r.rate_to_sgd) > 1), 'USD→SGD inverted and stored');
+});
+
+test('finances totals are flagged estimated (FX-converted)', () => {
+  const { ctx } = loadApp();
+  eq(ctx.getFinancesSection().data.summary.total_portfolio_value.estimated, true);
+});
+
+// ===========================================================================
+// Observability (errors tab + weekly digest)
+// ===========================================================================
+test('logError writes an errors row and rate-limits duplicates', () => {
+  const { ctx } = loadApp((c, store) => { setProps(store, { SHEET_ID: 's' }); seedSheet(store, 'errors', c.ERROR_HEADERS, []); });
+  eq(ctx.logError('section:tasks', 'boom'), true, 'first logged');
+  eq(ctx.logError('section:tasks', 'boom again'), false, 'duplicate suppressed within the hour');
+  eq(ctx.storeReadAll(ctx.ERRORS_TAB, ctx.ERROR_HEADERS).length, 1, 'only one row');
+});
+
+test('weeklyErrorDigest summarises issues and pushes to Telegram', () => {
+  const { ctx, store } = loadApp((c, s) => {
+    setProps(s, { SHEET_ID: 's', TELEGRAM_BOT_TOKEN: 'bt', TELEGRAM_CHAT_ID: '1' });
+    seedSheet(s, 'errors', c.ERROR_HEADERS, [{ ts: dAt(-1), source: 'section:finances', message: 'ibkr down' }]);
+    s.fetch = () => ({ code: 200, body: '{}' });
+  });
+  const r = ctx.weeklyErrorDigest();
+  ok(/section:finances/.test(r.text), 'digest names the failing source');
+  ok(store.fetchLog.some(f => /sendMessage/.test(f.url)), 'pushed to Telegram');
+});
+
+test('degraded sections are recorded for the digest during assembly', () => {
+  const { ctx } = loadApp((c, store) => {
+    setProps(store, { SHEET_ID: 's', TICKTICK_ACCESS_TOKEN: 'tok' });
+    store.fetch = () => ({ code: 500, body: 'boom' });
+  });
+  ctx.getDashboardState();
+  ok(ctx.storeReadAll(ctx.ERRORS_TAB, ctx.ERROR_HEADERS).some(e => /section:tasks/.test(e.source)), 'degradation persisted');
+});
+
+// ===========================================================================
+// Maintenance
+// ===========================================================================
+test('compactTaskOverrides collapses to one (latest) row per id', () => {
+  const { ctx } = loadApp((c, store) => {
+    setProps(store, { SHEET_ID: 's' });
+    seedSheet(store, 'task_overrides', c.OVERRIDE_HEADERS, [
+      { id: 'tt1', status: 'done', updated_at: dAt(-2) },
+      { id: 'tt1', status: 'deleted', updated_at: dAt(-1) },
+      { id: 'tt2', status: 'done', updated_at: dAt(-1) }
+    ]);
+  });
+  const r = ctx.compactTaskOverrides();
+  eq(r.after, 2, 'two distinct ids remain');
+  const rows = ctx.storeReadAll(ctx.OVERRIDES_TAB, ctx.OVERRIDE_HEADERS);
+  eq(rows.find(x => x.id === 'tt1').status, 'deleted', 'latest status wins');
+});
+
+// ===========================================================================
 // Meta
 // ===========================================================================
 test('manifest is valid (V8 runtime, scopes, webapp config)', () => {
@@ -415,7 +499,14 @@ test('diagnose() returns structured per-integration status', () => {
   rep.integrations.forEach(i => { ok(i.key && i.status, 'structured entry'); });
   ok(rep.integrations.find(i => i.key === 'telegram').status === 'ok', 'telegram live-tested ok');
   ok(rep.integrations.find(i => i.key === 'ai').status === 'not_configured', 'unconfigured flagged');
+  ok(rep.integrations.find(i => i.key === 'timezone'), 'timezone consistency reported');
+  ok(rep.integrations.find(i => i.key === 'fx'), 'fx reachability reported');
   ok(/integrations OK/.test(rep.summary), 'summary text');
+});
+
+test('timezone drift between manifest and setting is flagged', () => {
+  const { ctx, store } = loadApp((c, s) => { s.scriptTimeZone = 'America/New_York'; });
+  eq(ctx.timezoneIsConsistent(), false, 'mismatch detected');
 });
 
 // ===========================================================================

@@ -36,6 +36,7 @@ var CacheService     = __m.services.CacheService;
 var ScriptApp        = __m.services.ScriptApp;
 var Utilities        = __m.services.Utilities;
 var Logger           = __m.services.Logger;
+var Session          = __m.services.Session;
 `;
 
 const seed = `

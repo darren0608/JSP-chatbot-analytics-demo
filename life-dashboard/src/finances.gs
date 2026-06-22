@@ -11,12 +11,10 @@
 var DIVIDENDS_TAB = 'dividends';
 var DIVIDEND_HEADERS = ['instrument', 'amount', 'currency', 'pay_date'];
 
-// Naive FX to SGD for headline totals. Real FX would come from a feed; this
-// keeps the demo coherent without adding another live dependency.
-var FX_TO_SGD = { SGD: 1, USD: 1.35, EUR: 1.45, GBP: 1.70 };
+// FX to SGD now comes from fx.gs (Sheet/feed-backed, cached) rather than a
+// constant. Headline totals are therefore approximate → flagged estimated:true.
 function _toSgd(amount, currency) {
-  var rate = FX_TO_SGD[currency] || 1;
-  return (Number(amount) || 0) * rate;
+  return fxToSgd(amount, currency);
 }
 
 function _readHoldings() {
@@ -44,9 +42,10 @@ function getFinancesSection() {
   });
 
   var cap = settings.srsAnnualCap;
+  // estimated:true wherever multi-currency holdings were converted via FX.
   var summary = {
-    total_portfolio_value: { value: round2(totalSgd), as_of: asOf, currency: 'SGD' },
-    annual_dividends_est: { value: round2(dividendsSgd), as_of: asOf, currency: 'SGD' },
+    total_portfolio_value: { value: round2(totalSgd), as_of: asOf, currency: 'SGD', estimated: true },
+    annual_dividends_est: { value: round2(dividendsSgd), as_of: asOf, currency: 'SGD', estimated: true },
     srs_balance: { value: round2(srsBalance), as_of: asOf, currency: 'SGD' },
     srs_topup_remaining: { value: round2(Math.max(0, cap - srsBalance)), cap: cap, as_of: asOf, currency: 'SGD' },
     cpf_total: { value: round2(cpfTotal), as_of: asOf, currency: 'SGD' }

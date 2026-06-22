@@ -95,6 +95,17 @@ function coerceSetting(key, raw) {
   return raw;
 }
 
+// The timezone Apps Script actually runs in (from the manifest). All Date math
+// uses this; if it drifts from settings.timezone, diagnose() flags it so the
+// owner fixes the manifest rather than getting silently wrong times.
+function getScriptTimeZone() {
+  return tryOr(getSettings().timezone, function () { return Session.getScriptTimeZone(); }).value;
+}
+
+function timezoneIsConsistent() {
+  return getScriptTimeZone() === getSettings().timezone;
+}
+
 // --- Complete mock dataset --------------------------------------------------
 // Built relative to now() so the demo always looks current. Each section's
 // module falls back to the matching slice of this when its creds are absent.

@@ -112,6 +112,20 @@ function storeReplaceWhere(tabName, headers, matchCol, matchVal, records) {
   });
 }
 
+// Overwrite a fully-managed tab (header + records). Use only for tables the app
+// owns entirely (e.g. fx rates) — never for tabs holding manual user rows.
+function storeWriteAll(tabName, headers, records) {
+  return withLock(function () {
+    var sh = _getOrCreateTab(tabName, headers);
+    sh.clearContents();
+    var all = [headers.slice()].concat((records || []).map(function (rec) {
+      return headers.map(function (h) { return rec[h] === undefined ? '' : rec[h]; });
+    }));
+    sh.getRange(1, 1, all.length, headers.length).setValues(all);
+    return records ? records.length : 0;
+  });
+}
+
 // LockService guard. Falls back to a plain call when LockService is absent
 // (the mock provides one; this keeps store usable in degraded environments).
 function withLock(fn) {

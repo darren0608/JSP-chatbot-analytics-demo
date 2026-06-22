@@ -93,6 +93,9 @@ function _buildDashboardState() {
   var mode = _resolveMode(sourceMap);
   var home = _buildHome(sections);
 
+  // Persist any degraded sections for the weekly health digest (rate-limited).
+  tryOr(null, function () { recordDegradations({ warnings: warnings }); });
+
   return {
     mode: mode,
     generatedAt: now().toISOString(),

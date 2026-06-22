@@ -4,6 +4,13 @@
 
 <meta charset="utf-8">
 <title>Life Dashboard</title>
+<!-- PWA / mobile install hints. The web-app manifest is attached at runtime
+     (Blob URL) to avoid attribute-quoting issues with an inline data URI. -->
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Life">
 <style>
 /* ========================================================================
    DESIGN TOKENS  (see docs/STYLE_GUIDE.md)
@@ -415,10 +422,12 @@ function createMocks() {
     }
   };
 
-  // ---- ScriptApp / Utilities / Logger ----
+  // ---- ScriptApp / Utilities / Logger / Session ----
   var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
   var Utilities = { sleep: function () {} };
   var Logger = { log: function (m) { store.logs.push(m); } };
+  store.scriptTimeZone = 'Asia/Singapore';
+  var Session = { getScriptTimeZone: function () { return store.scriptTimeZone; } };
 
   // ---- HtmlService / ContentService (only used at call-time) ----
   var HtmlService = {
@@ -446,6 +455,7 @@ function createMocks() {
       ScriptApp: ScriptApp,
       Utilities: Utilities,
       Logger: Logger,
+      Session: Session,
       HtmlService: HtmlService,
       ContentService: ContentService
     }
@@ -465,6 +475,7 @@ var CacheService     = __m.services.CacheService;
 var ScriptApp        = __m.services.ScriptApp;
 var Utilities        = __m.services.Utilities;
 var Logger           = __m.services.Logger;
+var Session          = __m.services.Session;
 
 /* ===== util.gs ===== */
 /**
@@ -757,6 +768,17 @@ function coerceSetting(key, raw) {
   return raw;
 }
 
+// The timezone Apps Script actually runs in (from the manifest). All Date math
+// uses this; if it drifts from settings.timezone, diagnose() flags it so the
+// owner fixes the manifest rather than getting silently wrong times.
+function getScriptTimeZone() {
+  return tryOr(getSettings().timezone, function () { return Session.getScriptTimeZone(); }).value;
+}
+
+function timezoneIsConsistent() {
+  return getScriptTimeZone() === getSettings().timezone;
+}
+
 // --- Complete mock dataset --------------------------------------------------
 // Built relative to now() so the demo always looks current. Each section's
 // module falls back to the matching slice of this when its creds are absent.
@@ -972,6 +994,20 @@ function storeReplaceWhere(tabName, headers, matchCol, matchVal, records) {
   });
 }
 
+// Overwrite a fully-managed tab (header + records). Use only for tables the app
+// owns entirely (e.g. fx rates) — never for tabs holding manual user rows.
+function storeWriteAll(tabName, headers, records) {
+  return withLock(function () {
+    var sh = _getOrCreateTab(tabName, headers);
+    sh.clearContents();
+    var all = [headers.slice()].concat((records || []).map(function (rec) {
+      return headers.map(function (h) { return rec[h] === undefined ? '' : rec[h]; });
+    }));
+    sh.getRange(1, 1, all.length, headers.length).setValues(all);
+    return records ? records.length : 0;
+  });
+}
+
 // LockService guard. Falls back to a plain call when LockService is absent
 // (the mock provides one; this keeps store usable in degraded environments).
 function withLock(fn) {
@@ -987,6 +1023,152 @@ function withLock(fn) {
   } finally {
     if (lock) { try { lock.releaseLock(); } catch (e2) {} }
   }
+}
+
+/* ===== fx.gs ===== */
+/**
+ * fx.gs — FX rates to SGD, sourced as DATA rather than hardcoded constants.
+ *
+ * Resolution order (all free):
+ *   1. CacheService (6h) — avoids re-fetching within a day.
+ *   2. The `fx` Sheet tab (currency, rate_to_sgd, updated_at) — survives across
+ *      runs and lets the owner override a rate manually.
+ *   3. Built-in fallback constants — so totals still compute offline / unconfigured.
+ *
+ * refreshFxRates() pulls from frankfurter.app (free, keyless) and writes the
+ * `fx` tab. Headline totals are labelled "est." in the UI because rates and
+ * manual rows are approximate.
+ */
+
+var FX_TAB = 'fx';
+var FX_HEADERS = ['currency', 'rate_to_sgd', 'updated_at'];
+var FX_FALLBACK = { SGD: 1, USD: 1.35, EUR: 1.45, GBP: 1.70 };
+var FX_FRANKFURTER = 'https://api.frankfurter.app/latest';
+
+// Returns a map { CUR: rateToSgd, ... }. Always includes SGD:1.
+function getFxRates() {
+  return cached('fx_rates', 6 * 3600, _resolveFxRates);
+}
+
+function _resolveFxRates() {
+  var rates = { SGD: 1 };
+  if (isConfigured('sheet')) {
+    tryOr([], function () { return storeReadAll(FX_TAB, FX_HEADERS); }).value.forEach(function (r) {
+      var cur = String(r.currency || '').toUpperCase();
+      var rate = Number(r.rate_to_sgd);
+      if (cur && rate > 0) rates[cur] = rate;
+    });
+  }
+  // Backfill anything missing from the fallback table so conversions never NaN.
+  Object.keys(FX_FALLBACK).forEach(function (cur) {
+    if (!rates[cur]) rates[cur] = FX_FALLBACK[cur];
+  });
+  return rates;
+}
+
+function fxToSgd(amount, currency) {
+  var rates = getFxRates();
+  var cur = String(currency || 'SGD').toUpperCase();
+  var rate = rates[cur] || FX_FALLBACK[cur] || 1;
+  return (Number(amount) || 0) * rate;
+}
+
+// Time-trigger / Settings-button entrypoint: refresh rates from the free API.
+function refreshFxRates() {
+  if (!isConfigured('sheet')) return { ok: false, message: 'Sheet not configured — cannot store FX rates.' };
+  var symbols = ['USD', 'EUR', 'GBP']; // currencies we hold besides SGD
+  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?from=SGD&to=' + symbols.join(','), { muteHttpExceptions: true });
+  if (resp.getResponseCode() >= 400) return { ok: false, message: 'FX provider error ' + resp.getResponseCode() };
+  var body = JSON.parse(resp.getContentText() || '{}');
+  var sgdTo = body.rates || {};
+  var rows = [{ currency: 'SGD', rate_to_sgd: 1, updated_at: now().toISOString() }];
+  symbols.forEach(function (cur) {
+    if (sgdTo[cur] > 0) rows.push({ currency: cur, rate_to_sgd: round2(1 / sgdTo[cur]), updated_at: now().toISOString() });
+  });
+  storeWriteAll(FX_TAB, FX_HEADERS, rows);
+  cacheRemove('fx_rates');
+  auditLog('fx.refresh', null, { currencies: rows.length });
+  return { ok: true, rates: rows.length };
+}
+
+function fxTestCall() {
+  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?from=SGD&to=USD', { muteHttpExceptions: true });
+  if (resp.getResponseCode() >= 400) throw new Error('FX provider unreachable');
+  return { ok: true };
+}
+
+/* ===== errors.gs ===== */
+/**
+ * errors.gs — lightweight observability.
+ *
+ * The audit log records intended writes; this records things that GO WRONG
+ * (degraded sections, failed integrations) to an append-only `errors` tab, so a
+ * non-technical owner gets a weekly Telegram digest instead of silently
+ * tolerating a broken integration for months.
+ *
+ * Writes are rate-limited per source (once/hour via CacheService) so a source
+ * that fails on every 30s refresh doesn't flood the tab.
+ */
+
+var ERRORS_TAB = 'errors';
+var ERROR_HEADERS = ['ts', 'source', 'message'];
+
+function logError(source, message) {
+  var key = 'errseen_' + source;
+  if (cacheGet(key)) return false;            // already logged this source recently
+  cachePut(key, 1, 3600);                      // suppress dupes for an hour
+  tryOr(null, function () {
+    storeAppend(ERRORS_TAB, ERROR_HEADERS, { ts: now().toISOString(), source: source, message: String(message).slice(0, 500) });
+  });
+  return true;
+}
+
+// Called during state assembly: persist any degraded sections (rate-limited).
+function recordDegradations(state) {
+  (state.warnings || []).forEach(function (w) {
+    logError('section:' + w.section, w.message);
+  });
+}
+
+function readErrors(sinceMs) {
+  if (!isConfigured('sheet')) return [];
+  var cutoff = sinceMs || 0;
+  return storeReadAll(ERRORS_TAB, ERROR_HEADERS).filter(function (r) {
+    var t = toDate(r.ts);
+    return t && t.getTime() >= cutoff;
+  });
+}
+
+// Time-trigger entrypoint (weekly): summarise the week's errors + current
+// degraded sources, push to Telegram. Silent if everything's healthy.
+function weeklyErrorDigest() {
+  var since = nowMs() - 7 * 24 * 3600 * 1000;
+  var errs = readErrors(since);
+  var degradedNow = [];
+  tryOr(null, function () {
+    var st = getDashboardState();
+    Object.keys(st.sources).forEach(function (k) { if (st.sources[k] === 'degraded') degradedNow.push(k); });
+  });
+
+  if (!errs.length && !degradedNow.length) {
+    auditLog('digest.weekly', null, 'all healthy');
+    return { ok: true, healthy: true };
+  }
+
+  var bySource = {};
+  errs.forEach(function (e) { bySource[e.source] = (bySource[e.source] || 0) + 1; });
+  var lines = ['📊 Weekly health digest'];
+  if (degradedNow.length) lines.push('Currently degraded: ' + degradedNow.join(', '));
+  if (errs.length) {
+    lines.push(errs.length + ' issue(s) logged this week:');
+    Object.keys(bySource).forEach(function (s) { lines.push('• ' + s + ' ×' + bySource[s]); });
+  } else {
+    lines.push('No errors logged — looks healthy now.');
+  }
+  var text = lines.join('\n');
+  if (isConfigured('telegram')) tryOr(null, function () { return telegramSend(text); });
+  auditLog('digest.weekly', null, { errors: errs.length, degraded: degradedNow.length });
+  return { ok: true, text: text, errors: errs.length, degraded: degradedNow };
 }
 
 /* ===== tasks.gs ===== */
@@ -1465,12 +1647,10 @@ function ibkrTestCall() {
 var DIVIDENDS_TAB = 'dividends';
 var DIVIDEND_HEADERS = ['instrument', 'amount', 'currency', 'pay_date'];
 
-// Naive FX to SGD for headline totals. Real FX would come from a feed; this
-// keeps the demo coherent without adding another live dependency.
-var FX_TO_SGD = { SGD: 1, USD: 1.35, EUR: 1.45, GBP: 1.70 };
+// FX to SGD now comes from fx.gs (Sheet/feed-backed, cached) rather than a
+// constant. Headline totals are therefore approximate → flagged estimated:true.
 function _toSgd(amount, currency) {
-  var rate = FX_TO_SGD[currency] || 1;
-  return (Number(amount) || 0) * rate;
+  return fxToSgd(amount, currency);
 }
 
 function _readHoldings() {
@@ -1498,9 +1678,10 @@ function getFinancesSection() {
   });
 
   var cap = settings.srsAnnualCap;
+  // estimated:true wherever multi-currency holdings were converted via FX.
   var summary = {
-    total_portfolio_value: { value: round2(totalSgd), as_of: asOf, currency: 'SGD' },
-    annual_dividends_est: { value: round2(dividendsSgd), as_of: asOf, currency: 'SGD' },
+    total_portfolio_value: { value: round2(totalSgd), as_of: asOf, currency: 'SGD', estimated: true },
+    annual_dividends_est: { value: round2(dividendsSgd), as_of: asOf, currency: 'SGD', estimated: true },
     srs_balance: { value: round2(srsBalance), as_of: asOf, currency: 'SGD' },
     srs_topup_remaining: { value: round2(Math.max(0, cap - srsBalance)), cap: cap, as_of: asOf, currency: 'SGD' },
     cpf_total: { value: round2(cpfTotal), as_of: asOf, currency: 'SGD' }
@@ -2419,6 +2600,17 @@ function diagnose() {
     report.integrations.push(_diagOne(key, INTEGRATION_TESTS[key]));
   });
 
+  // FX is keyless/free — report its live reachability (not credential-gated).
+  var fx = tryOr(null, fxTestCall);
+  report.integrations.push({ key: 'fx', label: 'FX rates', status: fx.ok ? 'ok' : 'error', detail: fx.ok ? fx.value : fx.error });
+
+  // Timezone consistency: manifest (runtime) vs the user's setting.
+  report.integrations.push({
+    key: 'timezone', label: 'Timezone',
+    status: timezoneIsConsistent() ? 'ok' : 'warn',
+    detail: 'runtime=' + getScriptTimeZone() + ', setting=' + getSettings().timezone
+  });
+
   var ok = report.integrations.filter(function (i) { return i.status === 'ok'; }).length;
   report.summary = ok + '/' + report.integrations.length + ' integrations OK';
   tryOr(null, function () { auditLog('diagnose.run', null, report.summary); });
@@ -2434,6 +2626,48 @@ function _diagOne(key, testFn) {
   return r.ok
     ? { key: key, label: reg.label, status: 'ok', detail: r.value }
     : { key: key, label: reg.label, status: 'error', detail: r.error };
+}
+
+/* ===== maintenance.gs ===== */
+/**
+ * maintenance.gs — periodic housekeeping (time-trigger entrypoints).
+ *
+ * dailyMaintenance(): compact the append-only TickTick override tab, prune old
+ * error rows, and refresh FX rates. Each step is best-effort and isolated so one
+ * failure never aborts the rest.
+ */
+
+// Collapse the append-only `task_overrides` tab to one (latest) row per id so it
+// can't grow unbounded over years. Last status wins (matches read semantics).
+function compactTaskOverrides() {
+  if (!isConfigured('sheet')) return { ok: false };
+  var rows = storeReadAll(OVERRIDES_TAB, OVERRIDE_HEADERS);
+  if (rows.length < 2) return { ok: true, compacted: 0 };
+  var latest = {};
+  rows.forEach(function (r) { latest[String(r.id)] = { id: r.id, status: r.status, updated_at: r.updated_at }; });
+  var kept = Object.keys(latest).map(function (k) { return latest[k]; });
+  storeWriteAll(OVERRIDES_TAB, OVERRIDE_HEADERS, kept);
+  return { ok: true, before: rows.length, after: kept.length };
+}
+
+// Drop error rows older than maxAgeDays (default 60).
+function pruneErrors(maxAgeDays) {
+  if (!isConfigured('sheet')) return { ok: false };
+  var cutoff = nowMs() - (maxAgeDays || 60) * 24 * 3600 * 1000;
+  var rows = storeReadAll(ERRORS_TAB, ERROR_HEADERS);
+  var kept = rows.filter(function (r) { var t = toDate(r.ts); return t && t.getTime() >= cutoff; });
+  if (kept.length !== rows.length) storeWriteAll(ERRORS_TAB, ERROR_HEADERS, kept);
+  return { ok: true, removed: rows.length - kept.length };
+}
+
+function dailyMaintenance() {
+  var result = {
+    overrides: tryOr(null, compactTaskOverrides).value,
+    errors: tryOr(null, function () { return pruneErrors(60); }).value,
+    fx: tryOr(null, refreshFxRates).value
+  };
+  auditLog('maintenance.daily', null, result);
+  return result;
 }
 
 /* ===== Code.gs ===== */
@@ -2531,6 +2765,9 @@ function _buildDashboardState() {
 
   var mode = _resolveMode(sourceMap);
   var home = _buildHome(sections);
+
+  // Persist any degraded sections for the weekly health digest (rate-limited).
+  tryOr(null, function () { recordDegradations({ warnings: warnings }); });
 
   return {
     mode: mode,
@@ -2644,6 +2881,24 @@ var google = { script: { run: new Builder() } };
 var STATE = getDashboardState();
 var hasServer = (typeof google !== 'undefined' && google.script && google.script.run);
 
+// PWA: attach an installable web-app manifest at runtime.
+(function(){try{
+  var icon='data:image/svg+xml,'+encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#4f46e5'/><text x='32' y='45' font-family='sans-serif' font-size='38' font-weight='700' text-anchor='middle' fill='white'>L</text></svg>");
+  var mani={name:'Life Dashboard',short_name:'Life',display:'standalone',start_url:'.',
+    background_color:'#0e1014',theme_color:'#4f46e5',icons:[{src:icon,sizes:'any',type:'image/svg+xml'}]};
+  // Set as a data URI via the DOM property (no HTML-attribute quoting issues).
+  var l=document.createElement('link');l.rel='manifest';
+  l.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(mani));
+  document.head.appendChild(l);
+}catch(e){}})();
+
+// Offline tolerance: cache the last good STATE locally and fall back to it if
+// the server delivered nothing (a full service worker isn't reliable inside the
+// Apps Script iframe, so localStorage is the pragmatic choice here).
+function persistState(){try{if(STATE)localStorage.setItem('ld_state',JSON.stringify(STATE));}catch(e){}}
+if(!STATE){try{var c=localStorage.getItem('ld_state');if(c)STATE=JSON.parse(c);}catch(e){}}
+
 // ---- tiny DOM helpers ----
 function $(s){return document.querySelector(s);}
 function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
@@ -2687,6 +2942,7 @@ function render(){
   (STATE.warnings||[]).forEach(function(x){w.appendChild(el('div','warnbar','⚠ '+esc(x.section)+' is degraded — showing last known data. ('+esc(x.message)+')'));});
 
   renderHome();renderTime();renderTasks();renderMoney();renderMore();
+  persistState();
 }
 
 function renderHome(){
@@ -2768,8 +3024,8 @@ function renderTasks(){
 
 function renderMoney(){
   var f=STATE.sections.finances.data,s=f.summary,grid=$('#moneyStats');grid.innerHTML='';
-  if(s.total_portfolio_value)grid.appendChild(statCard('Total portfolio',money(s.total_portfolio_value.value,'SGD'),'as of '+rel(s.total_portfolio_value.as_of)));
-  if(s.annual_dividends_est)grid.appendChild(statCard('Est. annual dividends',money(s.annual_dividends_est.value,'SGD'),'projected','pos'));
+  if(s.total_portfolio_value)grid.appendChild(statCard('Total portfolio',money(s.total_portfolio_value.value,'SGD'),(s.total_portfolio_value.estimated?'est. · ':'')+'as of '+rel(s.total_portfolio_value.as_of)));
+  if(s.annual_dividends_est)grid.appendChild(statCard('Est. annual dividends',money(s.annual_dividends_est.value,'SGD'),'projected (est.)','pos'));
   if(s.srs_topup_remaining)grid.appendChild(statCard('SRS room left',money(s.srs_topup_remaining.value,'SGD'),'cap '+money(s.srs_topup_remaining.cap,'SGD')));
   if(s.cpf_total)grid.appendChild(statCard('CPF total',money(s.cpf_total.value,'SGD'),''));
   var h=$('#holdings');h.innerHTML='';

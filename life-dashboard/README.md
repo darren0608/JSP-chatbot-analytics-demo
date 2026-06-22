@@ -8,6 +8,11 @@ Built on **Google Apps Script** (V8) with **one Google Sheet as the datastore**.
 It runs beautifully with **zero credentials** (full mock dataset) and lights up
 each section live as you add credentials.
 
+> **New here / taking this over?** Start with
+> **[docs/HANDOVER.md](docs/HANDOVER.md)** — a plain-language guide (no coding
+> needed) to what the key functions do, how each is triggered, where your data
+> and secrets live, and what to do when something looks wrong.
+
 > **Note on layout.** This was scaffolded as a self-contained project inside the
 > `life-dashboard/` directory so it can be lifted straight into its own repo:
 > everything it needs (source, tests, CI, docs) lives here and nothing depends on

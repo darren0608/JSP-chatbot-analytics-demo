@@ -1,0 +1,11 @@
+{
+  "name": "life-dashboard-v2",
+  "version": "2.0.0",
+  "description": "Single-user personal Life Dashboard (Google Apps Script) — calendar, tasks, finances, habits, bills + a two-way Telegram assistant.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.js",
+    "deploy": "clasp push && clasp deploy"
+  },
+  "license": "MIT"
+}

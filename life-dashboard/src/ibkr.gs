@@ -10,8 +10,10 @@
  * Constraint: finance integrations never execute trades or move money.
  */
 
-var FLEX_SEND = 'https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest';
-var FLEX_GET = 'https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement';
+// Current documented Flex v3 paths (the old Universal/servlet/… form is
+// legacy). GetStatement additionally honours the <Url> returned by SendRequest.
+var FLEX_SEND = 'https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/SendRequest';
+var FLEX_GET = 'https://gdcdyn.interactivebrokers.com/AccountManagement/FlexWebService/GetStatement';
 var IBKR_LOCK_KEY = 'IBKR_REFRESH_INPROGRESS';
 var HOLDINGS_TAB = 'holdings';
 var HOLDING_HEADERS = ['account', 'instrument', 'type', 'units', 'avg_cost', 'current_value', 'annual_dividend_est', 'currency', 'updated_at'];

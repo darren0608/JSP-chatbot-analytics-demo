@@ -143,7 +143,9 @@ function _safe(fn) {
   catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
-function apiAddTask(title, opts)            { return _safe(function () { return addTask(title, opts); }); }
+// Accepts raw input ("buy milk due friday") — always creates a task, extracting
+// a due date when present. Never routes to queries (that's apiQuickCapture).
+function apiAddTask(text, opts)             { return _safe(function () { var p = parseTaskInput(text); return addTask(p.title, Object.assign({ due: p.due }, opts || {})); }); }
 function apiCompleteTask(id, source)        { return _safe(function () { return completeTask(id, source); }); }
 function apiReopenTask(id, source)          { return _safe(function () { return reopenTask(id, source); }); }
 function apiDeleteTask(id, source)          { return _safe(function () { return softDeleteTask(id, source); }); }

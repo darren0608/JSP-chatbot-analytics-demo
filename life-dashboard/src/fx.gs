@@ -15,7 +15,9 @@
 var FX_TAB = 'fx';
 var FX_HEADERS = ['currency', 'rate_to_sgd', 'updated_at'];
 var FX_FALLBACK = { SGD: 1, USD: 1.35, EUR: 1.45, GBP: 1.70 };
-var FX_FRANKFURTER = 'https://api.frankfurter.app/latest';
+// Canonical host per frankfurter.dev docs (the old api.frankfurter.app host is
+// legacy). v1 form: /v1/latest?base=SGD&symbols=USD,EUR,GBP
+var FX_FRANKFURTER = 'https://api.frankfurter.dev/v1/latest';
 
 // Returns a map { CUR: rateToSgd, ... }. Always includes SGD:1.
 function getFxRates() {
@@ -49,7 +51,7 @@ function fxToSgd(amount, currency) {
 function refreshFxRates() {
   if (!isConfigured('sheet')) return { ok: false, message: 'Sheet not configured — cannot store FX rates.' };
   var symbols = ['USD', 'EUR', 'GBP']; // currencies we hold besides SGD
-  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?from=SGD&to=' + symbols.join(','), { muteHttpExceptions: true });
+  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?base=SGD&symbols=' + symbols.join(','), { muteHttpExceptions: true });
   if (resp.getResponseCode() >= 400) return { ok: false, message: 'FX provider error ' + resp.getResponseCode() };
   var body = JSON.parse(resp.getContentText() || '{}');
   var sgdTo = body.rates || {};
@@ -64,7 +66,7 @@ function refreshFxRates() {
 }
 
 function fxTestCall() {
-  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?from=SGD&to=USD', { muteHttpExceptions: true });
+  var resp = UrlFetchApp.fetch(FX_FRANKFURTER + '?base=SGD&symbols=USD', { muteHttpExceptions: true });
   if (resp.getResponseCode() >= 400) throw new Error('FX provider unreachable');
   return { ok: true };
 }

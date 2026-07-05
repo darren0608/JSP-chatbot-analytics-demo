@@ -359,6 +359,31 @@ test('goals: progress = current / target', () => {
   ok(Math.abs(g.progress - 19500 / 30000) < 1e-9, 'progress computed');
 });
 
+test('REGRESSION: add-task box never misroutes to a query (e.g. "tomorrow")', () => {
+  const { ctx } = loadApp((c, store) => { setProps(store, { SHEET_ID: 's' }); seedSheet(store, 'tasks', c.TASK_HEADERS, []); });
+  const r = ctx.apiAddTask('buy milk tomorrow');
+  eq(r.status, 'open', 'a task was created, not a query');
+  eq(r.task.title, 'buy milk', 'trailing time word extracted');
+  ok(r.task.due, 'due date parsed from "tomorrow"');
+  const r2 = ctx.apiAddTask('renew passport due friday');
+  eq(r2.task.title, 'renew passport');
+  ok(r2.task.due, '"due friday" parsed');
+});
+
+test('REGRESSION: sheet-resident task labelled ticktick still mutates the sheet row', () => {
+  // The mock seed writes ticktick-labelled rows INTO the sheet; with TickTick
+  // unconfigured a delete must still land on the sheet row (was a silent no-op).
+  const { ctx } = loadApp((c, store) => {
+    setProps(store, { SHEET_ID: 's' });
+    seedSheet(store, 'tasks', c.TASK_HEADERS, [
+      { id: 'tt9', title: 'Standup', source: 'ticktick', due: '', status: 'open', updated_at: dAt(-1) }
+    ]);
+  });
+  eq(ctx.softDeleteTask('tt9', 'ticktick').status, 'deleted');
+  eq(ctx.getTasksSection().data.items.length, 0, 'row actually hidden');
+  eq(ctx.storeReadAll(ctx.TASKS_TAB, ctx.TASK_HEADERS)[0].status, 'deleted', 'sheet row updated in place');
+});
+
 test('quick-capture routing: task / note / query / confirm', () => {
   const { ctx } = loadApp((c, store) => { setProps(store, { SHEET_ID: 's' }); seedSheet(store, 'tasks', c.TASK_HEADERS, []); seedSheet(store, 'notes', c.NOTE_HEADERS, []); });
   eq(ctx.quickCapture('add task Foo').kind, 'task');

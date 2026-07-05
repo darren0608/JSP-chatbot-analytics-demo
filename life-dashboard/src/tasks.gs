@@ -112,20 +112,23 @@ function softDeleteTask(id, source) {
   return _setTaskStatus(id, source, 'deleted', 'task.delete');
 }
 
-// Unified status mutation. For TickTick we record a local override and make a
-// BEST-EFFORT API call — a completed task that TickTick no longer lists must
-// still "delete" cleanly (returns status, never throws). Soft-delete only.
+// Unified status mutation, routed by WHERE THE TASK ACTUALLY LIVES rather than
+// its source label: a row in the Sheet (even one labelled 'ticktick') is
+// updated in place; only tasks absent from the Sheet take the TickTick path
+// (best-effort API call + authoritative local override — a completed task that
+// TickTick no longer lists must still "delete" cleanly). Soft-delete only.
 function _setTaskStatus(id, source, status, action) {
   _requireWritable();
   if (!id) throw new Error('Task id required');
   source = source === 'ticktick' ? 'ticktick' : 'sheet';
 
-  if (source === 'sheet') {
-    var updated = storeUpdateById(TASKS_TAB, TASK_HEADERS, id, { status: status, updated_at: now().toISOString() });
-    if (!updated) throw new Error('Task not found: ' + id);
-    auditLog(action, id, { source: source, status: status });
+  // Sheet first: if the row exists there, that IS the record of truth.
+  var updated = storeUpdateById(TASKS_TAB, TASK_HEADERS, id, { status: status, updated_at: now().toISOString() });
+  if (updated) {
+    auditLog(action, id, { source: 'sheet', status: status });
     return { ok: true, status: status, id: id };
   }
+  if (source === 'sheet') throw new Error('Task not found: ' + id);
 
   // TickTick: best-effort remote change, authoritative local override.
   tryOr(null, function () {

@@ -39,6 +39,28 @@ function parseWhen(text) {
 }
 function _eod(d) { var x = startOfDay(d); x.setHours(18, 0, 0, 0); return x.toISOString(); }
 
+// Parse a raw task-entry string into {title, due}. Used by the Tasks tab's add
+// box, which must ALWAYS create a task — unlike quick capture, it never routes
+// to queries, so "buy milk tomorrow" becomes a task, not an agenda lookup.
+function parseTaskInput(text) {
+  var raw = String(text || '').trim();
+  var due = null, title = raw;
+  var m = raw.match(/\s+(due|by|on)\s+(.+)$/i);
+  if (m) {
+    due = parseWhen(m[2]);
+    if (due) title = raw.slice(0, m.index).trim();
+  }
+  if (!due) {
+    // Bare trailing time word: "buy milk tomorrow" / "call mum friday"
+    var tail = raw.match(/\s+(today|tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i);
+    if (tail) {
+      due = parseWhen(tail[1]);
+      if (due) title = raw.slice(0, tail.index).trim();
+    }
+  }
+  return { title: title || raw, due: due };
+}
+
 // Deterministic fallback parser. Always available.
 function regexParse(text) {
   var raw = String(text || '').trim();

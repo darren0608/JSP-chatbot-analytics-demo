@@ -10,15 +10,18 @@ token and the whole app follows.
 ### Color (semantic)
 | Token | Light | Dark | Use |
 |-------|-------|------|-----|
-| `--bg` | `#f6f7f9` | `#0e1014` | page background |
-| `--surface` | `#ffffff` | `#171a21` | cards, bars |
-| `--surface-2` | `#f0f2f5` | `#1f232c` | insets, leading icons, tracks |
-| `--text` | `#16181d` | `#e9edf4` | primary text |
-| `--text-muted` | `#646b78` | `#9aa3b2` | meta, captions |
-| `--border` | `#e4e7ec` | `#272c36` | hairline dividers |
-| `--accent` | `#4f46e5` | `#7c83ff` | primary actions, rings, progress |
-| `--accent-weak` | `#eceafe` | `#23263a` | accent backgrounds (chips) |
+| `--bg` | `#f3f4f7` | `#0b0d12` | page background |
+| `--surface` | `#ffffff` | `#151823` | cards, bars |
+| `--surface-2` | `#eef0f4` | `#1d212d` | insets, leading icons, tracks |
+| `--text` | `#171923` | `#edf0f7` | primary text |
+| `--text-muted` | `#61697b` | `#99a1b3` | meta, captions |
+| `--border` | `#e3e6ec` | `#262b38` | hairline dividers |
+| `--accent` | `#5455d6` | `#8f94ff` | primary actions, rings, progress |
+| `--accent-weak` | `#ecebfd` | `#232649` | accent backgrounds (chips, active nav pill) |
+| `--grad` | indigo→violet gradient | (deeper variant) | hero panel, primary buttons, progress fills |
+| `--on-grad` / `--on-grad-muted` | white / 78% white | | text on gradient surfaces |
 | `--success` / `--warning` / `--danger` / `--info` | semantic states | | trends, toasts, badges |
+| `--success-weak` / `--warning-weak` / `--danger-weak` | tinted backgrounds | | badges, warning bar, hover states |
 
 Theme switching: `[data-theme="light"|"dark"]` on `<html>`, with
 `@media (prefers-color-scheme: dark)` honoured when no manual choice is set. The
@@ -43,13 +46,15 @@ One variable font ramp (`Inter`/system): `--fs-display:28 · --fs-h1:22 ·
 | Component | Class | Notes |
 |-----------|-------|-------|
 | **Card** | `.card` (+ `.card-head`, `.sub`) | Surface container with header, subtitle and an `i` provenance tooltip. |
+| **Hero** | `.hero` | Gradient greeting panel on Home (greeting, date, AI summary) with soft decorative circles. |
+| **Date-group header** | `.datehead` | Uppercase day label + hairline rule in the timeline; "Today" tinted accent. |
 | **StatCard** | `.card > .stat` | Big number + label + meta; `.pos`/`.neg` color trends. |
 | **ListItem** | `.item` (`.lead`, `.body`, `.title`, `.meta`, `.trail`) | Leading icon, title, meta row, trailing action. Hairline rows, comfortable height. |
 | **Badge/Chip** | `.badge`, `.badge.{calendar,ticktick,sheet,ibkr,overdue}` | Consistent per-source colors (light + dark). |
 | **Mode chip** | `.chip.{live,mock,degraded}` | Plain-language status with a tooltip listing each source. |
 | **Button** | `.btn`, `.btn.primary`, `.btn.ghost`, `.btn.danger`, `.btn.icon` | Hover/active/focus-visible states; AA-contrast focus ring. |
 | **BottomNav** | `.bottomnav` / `.navbtn` | Sticky mobile tab bar, large tap targets, safe-area insets. |
-| **Ring** | `.ring` (`--p` 0–100) | Conic-gradient habit/progress ring with centered streak count. |
+| **Ring** | `.ring` (`--p` 0–100) + `.ringwrap .done` | Conic habit ring with centered streak count and a green ✓ pip when done today. |
 | **ProgressBar** | `.bar > i` | Goal progress. |
 | **Toast** | `.toast` (`.ok`/`.err`) | Bottom-center, auto-dismiss, reduced-motion safe. |
 | **Modal / Confirm** | `.modal-bg.open` / `.modal` | Quick-capture, search, and destructive confirmations. |

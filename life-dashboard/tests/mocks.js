@@ -136,8 +136,34 @@ function createMocks() {
     }
   };
 
-  // ---- ScriptApp / Utilities / Logger / Session ----
-  var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
+  // ---- ScriptApp (OAuth token + trigger builder) ----
+  store.triggers = []; // [{fn, kind, detail}]
+  function triggerBuilder(fn) {
+    var spec = { fn: fn, kind: 'time', detail: {} };
+    var b = {
+      timeBased: function () { return b; },
+      everyMinutes: function (n) { spec.detail.everyMinutes = n; return b; },
+      everyDays: function (n) { spec.detail.everyDays = n; return b; },
+      atHour: function (h) { spec.detail.atHour = h; return b; },
+      onWeekDay: function (d) { spec.detail.weekDay = d; return b; },
+      create: function () { store.triggers.push(spec); return { getHandlerFunction: function () { return fn; } }; }
+    };
+    return b;
+  }
+  var ScriptApp = {
+    getOAuthToken: function () { return 'test-oauth-token'; },
+    WeekDay: { MONDAY: 'MONDAY', SUNDAY: 'SUNDAY' },
+    newTrigger: triggerBuilder,
+    getProjectTriggers: function () {
+      return store.triggers.map(function (t) {
+        return { getHandlerFunction: function () { return t.fn; }, __spec: t };
+      });
+    },
+    deleteTrigger: function (t) {
+      var i = store.triggers.indexOf(t.__spec);
+      if (i >= 0) store.triggers.splice(i, 1);
+    }
+  };
   var Utilities = { sleep: function () {} };
   var Logger = { log: function (m) { store.logs.push(m); } };
   store.scriptTimeZone = 'Asia/Singapore';

@@ -95,11 +95,32 @@ html = html.replace('<script>\n// Boot state injected', bundle + '\n<script>\n//
 // drop the <base target="_top"> (Apps Script-only) so it opens cleanly as a file
 html = html.replace('<base target="_top">', '');
 
+// 5. Honesty layer: this file is a self-contained DEMO — it must never claim to
+// be "Live". Relabel the mode chip and add a dismissible explainer banner so
+// nobody expects real TickTick/IBKR data from a static page.
+const demoOverlay = `
+<script>
+(function(){
+  var chip=document.querySelector('#modeChip');
+  if(chip){chip.className='chip mock';chip.querySelector('.lbl').textContent='Demo';
+    chip.title='Standalone preview with sample data. TickTick, IBKR, Calendar and Telegram connect only in the deployed Apps Script app (see docs/DEPLOY.md).';}
+  var seen=null;try{seen=localStorage.getItem('ld_demo_banner');}catch(e){}
+  if(!seen){
+    var b=document.createElement('div');
+    b.setAttribute('style','position:sticky;top:0;z-index:60;background:var(--warning-weak);color:var(--warning);font-size:var(--fs-cap);font-weight:600;padding:10px 14px;display:flex;gap:10px;align-items:center');
+    b.innerHTML='<span>🧪</span><span style="flex:1">Demo preview — the data here is sample data and edits stay in this page. Live TickTick / IBKR / Calendar / Telegram connections work in the deployed Apps Script app (docs/DEPLOY.md).</span><button style="font:inherit;border:none;background:none;color:inherit;cursor:pointer;font-weight:700" aria-label="Dismiss">✕</button>';
+    b.querySelector('button').addEventListener('click',function(){b.remove();try{localStorage.setItem('ld_demo_banner','1');}catch(e){}});
+    document.body.insertBefore(b,document.body.firstChild);
+  }
+})();
+</script>`;
+html = html.replace('</body>', demoOverlay + '\n</body>');
+
 const outDir = path.join(ROOT, 'preview');
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'index.html'), html);
 
-// 5. Verify the data path in Node (no DOM) — assert state assembles correctly.
+// 6. Verify the data path in Node (no DOM) — assert state assembles correctly.
 const ctx = Object.assign({ console, JSON, Math, Date, Object, Array, String, Number, Boolean, isNaN, parseInt, parseFloat, RegExp, Error, encodeURIComponent, decodeURIComponent, setTimeout: () => {}, window: {} });
 vm.createContext(ctx);
 vm.runInContext(mocksSrc + glue + appSrc + seed, ctx, { filename: 'preview-bundle.js' });

@@ -17,7 +17,7 @@ const FILES = [
   'tasks.gs', 'ticktick.gs', 'calendar.gs', 'ibkr.gs', 'finances.gs',
   'habits.gs', 'bills.gs', 'goals.gs', 'notes.gs', 'countdowns.gs',
   'nlp.gs', 'ai.gs', 'capture.gs', 'telegram.gs', 'briefing.gs',
-  'search.gs', 'settings.gs', 'diagnose.gs', 'maintenance.gs', 'Code.gs'
+  'search.gs', 'settings.gs', 'diagnose.gs', 'maintenance.gs', 'triggers.gs', 'Code.gs'
 ];
 
 // Fixed clock: 2026-06-22 08:00 Asia/Singapore.

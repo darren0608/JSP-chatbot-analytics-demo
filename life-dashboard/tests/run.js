@@ -505,6 +505,30 @@ test('compactTaskOverrides collapses to one (latest) row per id', () => {
 });
 
 // ===========================================================================
+// Triggers
+// ===========================================================================
+test('setupTriggers installs the 5 scheduled jobs and is idempotent', () => {
+  const { ctx, store } = loadApp((c, s) => { setProps(s, { SHEET_ID: 's' }); });
+  const r1 = ctx.setupTriggers();
+  eq(r1.created, 5);
+  eq(store.triggers.length, 5, 'five triggers installed');
+  ok(store.triggers.some(t => t.fn === 'telegramPoll' && t.detail.everyMinutes === 1), 'poll every minute');
+  ok(store.triggers.some(t => t.fn === 'pushDailyBriefing' && t.detail.atHour === 7), 'briefing at briefingTime hour');
+  const r2 = ctx.setupTriggers(); // re-run must replace, not duplicate
+  eq(r2.removed, 5);
+  eq(store.triggers.length, 5, 'idempotent — still five');
+});
+
+test('removeTriggers clears only managed triggers', () => {
+  const { ctx, store } = loadApp((c, s) => { setProps(s, { SHEET_ID: 's' }); });
+  ctx.setupTriggers();
+  store.triggers.push({ fn: 'someoneElsesJob', kind: 'time', detail: {} });
+  const r = ctx.removeTriggers();
+  eq(r.removed, 5);
+  eq(store.triggers.length, 1, 'foreign trigger untouched');
+});
+
+// ===========================================================================
 // Meta
 // ===========================================================================
 test('manifest is valid (V8 runtime, scopes, webapp config)', () => {

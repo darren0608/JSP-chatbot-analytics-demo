@@ -58,9 +58,10 @@ They always return a clean result, so a hiccup never wipes your screen.
 | "Test integrations" | `apiDiagnose` | Checks every connection and reports status. |
 | (automatic refresh) | `apiGetState` | Re-fetches the latest data after an action. |
 
-### C. Runs on a schedule (Triggers you set up once)
-Set these up in the Apps Script editor under **Triggers**. Recommended schedule
-in brackets. All are optional except `telegramPoll` (needed for the bot).
+### C. Runs on a schedule (installed once with `setupTriggers`)
+You don't set these up by hand: run **`setupTriggers`** once from the editor
+(Run ▶) and all five are installed at sensible times. Re-running it is safe (it
+replaces its own triggers); `removeTriggers` uninstalls them.
 
 | Function | Suggested schedule | What it does |
 |----------|--------------------|--------------|

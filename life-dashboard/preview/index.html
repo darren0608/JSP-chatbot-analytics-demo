@@ -476,8 +476,34 @@ function createMocks() {
     }
   };
 
-  // ---- ScriptApp / Utilities / Logger / Session ----
-  var ScriptApp = { getOAuthToken: function () { return 'test-oauth-token'; } };
+  // ---- ScriptApp (OAuth token + trigger builder) ----
+  store.triggers = []; // [{fn, kind, detail}]
+  function triggerBuilder(fn) {
+    var spec = { fn: fn, kind: 'time', detail: {} };
+    var b = {
+      timeBased: function () { return b; },
+      everyMinutes: function (n) { spec.detail.everyMinutes = n; return b; },
+      everyDays: function (n) { spec.detail.everyDays = n; return b; },
+      atHour: function (h) { spec.detail.atHour = h; return b; },
+      onWeekDay: function (d) { spec.detail.weekDay = d; return b; },
+      create: function () { store.triggers.push(spec); return { getHandlerFunction: function () { return fn; } }; }
+    };
+    return b;
+  }
+  var ScriptApp = {
+    getOAuthToken: function () { return 'test-oauth-token'; },
+    WeekDay: { MONDAY: 'MONDAY', SUNDAY: 'SUNDAY' },
+    newTrigger: triggerBuilder,
+    getProjectTriggers: function () {
+      return store.triggers.map(function (t) {
+        return { getHandlerFunction: function () { return t.fn; }, __spec: t };
+      });
+    },
+    deleteTrigger: function (t) {
+      var i = store.triggers.indexOf(t.__spec);
+      if (i >= 0) store.triggers.splice(i, 1);
+    }
+  };
   var Utilities = { sleep: function () {} };
   var Logger = { log: function (m) { store.logs.push(m); } };
   store.scriptTimeZone = 'Asia/Singapore';
@@ -2753,6 +2779,62 @@ function dailyMaintenance() {
   return result;
 }
 
+/* ===== triggers.gs ===== */
+/**
+ * triggers.gs — one-click installation of all scheduled jobs.
+ *
+ * Run setupTriggers() ONCE from the Apps Script editor (Run ▶) after deploying.
+ * It removes any existing triggers it owns and recreates the full set, so it is
+ * safe to re-run at any time. Individual jobs no-op safely when their
+ * integration isn't configured (e.g. telegramPoll without a bot token).
+ */
+
+var MANAGED_TRIGGERS = {
+  telegramPoll: true,          // bot inbox (1 min)
+  telegramScanReminders: true, // task reminders (5 min)
+  pushDailyBriefing: true,     // morning summary (daily, briefingTime hour)
+  dailyMaintenance: true,      // compaction + FX refresh (daily, 3am)
+  weeklyErrorDigest: true      // health digest (Mondays, 9am)
+};
+
+function setupTriggers() {
+  // Remove only the triggers this app manages — never someone else's.
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (MANAGED_TRIGGERS[t.getHandlerFunction()]) {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+
+  ScriptApp.newTrigger('telegramPoll').timeBased().everyMinutes(1).create();
+  ScriptApp.newTrigger('telegramScanReminders').timeBased().everyMinutes(5).create();
+
+  var briefHour = parseInt(String(getSettings().briefingTime).split(':')[0], 10);
+  if (isNaN(briefHour) || briefHour < 0 || briefHour > 23) briefHour = 7;
+  ScriptApp.newTrigger('pushDailyBriefing').timeBased().atHour(briefHour).everyDays(1).create();
+
+  ScriptApp.newTrigger('dailyMaintenance').timeBased().atHour(3).everyDays(1).create();
+  ScriptApp.newTrigger('weeklyErrorDigest').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(9).create();
+
+  auditLog('triggers.setup', null, { removed: removed, created: 5 });
+  return { ok: true, removed: removed, created: 5 };
+}
+
+// Remove every trigger this app manages (e.g. before handing the account over).
+function removeTriggers() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (MANAGED_TRIGGERS[t.getHandlerFunction()]) {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  auditLog('triggers.remove', null, { removed: removed });
+  return { ok: true, removed: removed };
+}
+
 /* ===== Code.gs ===== */
 /**
  * Code.gs — web entrypoints + state assembly.
@@ -3235,6 +3317,22 @@ document.addEventListener('keydown',function(e){
 
 // boot
 render();
+</script>
+
+<script>
+(function(){
+  var chip=document.querySelector('#modeChip');
+  if(chip){chip.className='chip mock';chip.querySelector('.lbl').textContent='Demo';
+    chip.title='Standalone preview with sample data. TickTick, IBKR, Calendar and Telegram connect only in the deployed Apps Script app (see docs/DEPLOY.md).';}
+  var seen=null;try{seen=localStorage.getItem('ld_demo_banner');}catch(e){}
+  if(!seen){
+    var b=document.createElement('div');
+    b.setAttribute('style','position:sticky;top:0;z-index:60;background:var(--warning-weak);color:var(--warning);font-size:var(--fs-cap);font-weight:600;padding:10px 14px;display:flex;gap:10px;align-items:center');
+    b.innerHTML='<span>🧪</span><span style="flex:1">Demo preview — the data here is sample data and edits stay in this page. Live TickTick / IBKR / Calendar / Telegram connections work in the deployed Apps Script app (docs/DEPLOY.md).</span><button style="font:inherit;border:none;background:none;color:inherit;cursor:pointer;font-weight:700" aria-label="Dismiss">✕</button>';
+    b.querySelector('button').addEventListener('click',function(){b.remove();try{localStorage.setItem('ld_demo_banner','1');}catch(e){}});
+    document.body.insertBefore(b,document.body.firstChild);
+  }
+})();
 </script>
 </body>
 </html>
